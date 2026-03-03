@@ -1,139 +1,207 @@
-# Yisi
+<img src="./assets/icon.png" width="32" height="32" alt="Yisi" style="vertical-align: middle; margin-right: 8px;" /> Yisi
+===
 
-<div align="center">
-  <img src="./assets/icon.png" width="120" height="120" alt="Yisi Icon">
-  <p>An intelligent semantic conversion tool built for macOS | <a href="README.md">简体中文</a></p>
-  <p>Starting with translation, letting any information be presented in the form you need—silently, without interruption.</p>
-  <p><a href="https://yisi.pages.dev/">yisi.pages.dev</a></p>
-</div>
+**Intelligent semantic conversion tool for macOS** -- Select, trigger, present. No chat windows, no context switching. AI completes the conversion silently within your workflow.
 
----
+[简体中文](./README.md) | English
 
-## Brand Proposition
-
-> Initially, you just wanted a good translation tool.
-> Then you discovered that any information can be presented in the form you need.
+[![GitHub release](https://img.shields.io/github/v/release/MUTRO888/Yisi)](https://github.com/MUTRO888/Yisi/releases)
+[![Platform](https://img.shields.io/badge/platform-macOS%2014%2B-lightgrey)](https://github.com/MUTRO888/Yisi/releases)
+[![License](https://img.shields.io/badge/license-GPL--3.0-blue)](LICENSE)
 
 ---
 
-## One-Sentence Positioning
+## Screenshot
 
-Yisi is an intelligent semantic conversion tool built for macOS. Starting with translation, letting any information be presented in the form you need—silently, without interruption.
-
----
-
-## Chapter 1: Starting with Translation
-
-The exact moment most people need translation is the moment they get interrupted.
-
-Opening a browser, switching tabs, pasting text, waiting for the result, then switching back—by the time the process is complete, your train of thought is already broken.
-
-Yisi starts here. Select text, press a shortcut, and the result emerges right there in place. No page jumping, no waiting, no context switching. Its core design principle is simple: get the job done, then disappear.
-
-### Translating to the Extreme
-
-**Authentic translations.** Built-in, finely-polished translation prompts ensure the output is not mechanical word-for-word generation, but truly readable and natural language.
-
-**Learned Rules.** When you correct a term or modify a tone, Yisi remembers and forms a rule that is automatically applied in future translations. You don't need to re-explain it every time; it already knows.
-
-**Works entirely offline.** Integrated with macOS native System Translation, it can complete translations securely even without an internet connection. Data processing is done entirely locally, without going through any servers.
+![Yisi](promo-desktop-final.png)
 
 ---
 
-## Chapter 2: And Then, Beyond Translation
+## Features
 
-Translation is language-to-language conversion. But the conversions information requires go far beyond that.
-
-A piece of code to be explained. A draft to be polished. An error in a screenshot to be fixed. A vague idea to be expanded into a prompt.
-
-These are all flows of "meaning" between different forms. Yisi provides two ways to do this.
-
-### Preset Mode
-
-Pre-define your working scenario in advance, and from then on, every trigger requires zero extra operation.
-
-You define two things: **What is this input** (Input Perception), and **What kind of output do you want** (Output Command). For example:
-
-- Input Perception: A segment of Python code that might have bugs.
-- Output Command: From the perspective of a senior engineer, identify the issues and provide repair suggestions.
-
-Configure once, valid forever. Then, select the code, press the shortcut, and it's done—during the entire process, you described no requirements, established no dialogue, and the AI just did its job and stepped back.
-
-**Presets are the materialization of your thinking patterns. They are not a feature of a tool, but an extension of how you work.**
-
-### Custom Mode
-
-When a need is a one-off and doesn't require pre-configuration. Upon triggering, the popup instantly asks two simple fill-in-the-blanks: **What is this**, and **What should I do**. Ask the two separate questions, provide the input right there, and handle it on the spot.
-
-For example, crop an error popup—"This is an error message," "Please tell me how to resolve it." Select an English contract—"This is a legal document," "Please extract the key terms from it."
-
-Preset Mode is solidifying the intent in advance, while Custom Mode brings that same definition to the moment of action. **The logic behind both is exactly the same; the only difference is whether you want to set it once for all time, or fill it in as you go.**
+- **Instant Translation** -- Select text, press a shortcut, and the translation appears in place. Built-in finely-tuned prompts produce natural, authentic output instead of mechanical word-for-word conversion
+- **Learned Rules** -- Correct a term or adjust an expression, and Yisi remembers your preference and applies it automatically in future translations
+- **Offline Translation** -- Integrated with macOS native System Translation. Works entirely offline with all data processed locally
+- **Preset Mode** -- Pre-define input perception and output instructions once, valid forever. Select to trigger, trigger to complete, zero extra steps
+- **Custom Mode** -- For one-off needs without pre-configuration. Fill in "What is this" and "What to do" at the moment of triggering
+- **Screenshot Recognition** -- Capture any screen region via shortcut and send the image directly to AI for analysis. Design mockups, error dialogs, data charts all supported
+- **Multiple AI Providers** -- Supports Gemini, OpenAI, Zhipu AI, DeepSeek, and MiniMax. Text and vision models can be configured independently
+- **Translation History** -- All conversion results persist locally for future reference
+- **Menu Bar Resident** -- Lives in the macOS menu bar without occupying a Dock slot
+- **Dark / Light Theme** -- Follows system appearance or manual toggle
+- **Auto Update** -- Check and download new versions from within the app
+- **Launch at Login** -- Automatically registers as a login item on first launch
 
 ---
 
-## Chapter 3: Vision as Input
+## Design Philosophy
 
-Yisi doesn't just deal with text.
+> Yisi has no chatbox.
 
-When your query is hidden in an image—a design mockup, a data chart, an error screenshot—Yisi understands it equally well. Press the screenshot shortcut, select any area on your screen, and the Preset or Custom mode kicks in exactly the same way.
+It's not "select content -> open chat -> describe request -> wait for reply." It's "select -> present."
 
-Text and images are both simply information; both can be converted. You don't need to transcribe an image into text to process it—just crop directly and present directly.
+No back-and-forth, no chat history, no AI name or avatar. Your selected content on the left, its new form on the right. Close the window and everything is as it was -- except the task is already done.
 
-Image mode allows you to configure a visual model independently from text mode, or you can keep them consistent. The form of input is determined by content, but the processing logic remains exactly the same.
+AI is not a conversational partner you visit. It's a silent link in your workflow.
 
 ---
 
-## Chapter 4: Why Yisi, Instead of Other AI Tools?
+## Requirements
 
-There is no shortage of AI on the Mac. Invoking with shortcuts, uploading screenshots, talking to AI—many tools can do these.
+| Requirement | Minimum |
+|-------------|---------|
+| **macOS** | 14.0+ (Sonoma) |
+| **Chip** | Apple Silicon / Intel |
 
-But there is one important thing to realize: **In those flows, AI is always the "other".**
-
-You describe a problem, it answers. You provide a screenshot, it returns an analysis. You are the questioner, it is the responder. No matter how smooth the experience is, the nature of this relationship is this: you are interrupting what you are doing to communicate with an external entity, and then you jump back.
-
-Yisi breaks this relationship at its core.
-
-**Yisi has no chatbox.**
-
-It's not "select content → open chat → describe request → wait for reply." It's "select → present." There are no back-and-forths, no Q&As, and no conversation relationship for you to maintain. You are not chatting with an AI—you are just doing what you were going to do anyway. The AI quietly completes the conversion and disappears.
-
-This design philosophy is also evident in the interface. Yisi's popup has no chat history, no follow-up entry, no AI name or avatar profile picture. Because you can see the content you selected on the left and the new converted form on the right. When you close the window, you're back to where you started, and everything is as it was—except the task is already done.
-
-Preset Mode takes this logic to its absolute limit: you don't even need to think at the moment of triggering. Your intent was written into the preset long ago; select to trigger, trigger to finish. AI becomes a silent link in your workflow, not a conversational partner you're going to visit.
-
-This is not to say conversational AI lacks value. Deep discussions, complex reasoning, multi-round iterations—these scenarios absolutely require dialogue. But when you just want to turn the content in front of you into a different form, you don't need to establish a conversational relationship. What you need is a tool that quietly completes the conversion.
-
-This is Yisi.
+> **Note**: Yisi requires Accessibility permission to capture selected text. The system will prompt for authorization on first use. Grant access in **System Settings > Privacy & Security > Accessibility**.
 
 ---
 
 ## Quick Start
 
-**Complete a conversion in three steps:**
+### Installation
 
-1. **Select**: Highlight text in any app, or press the screenshot shortcut to capture an area of the screen.
-2. **Trigger**: `Cmd + C + C` (Text) / `Cmd + Shift + X` (Screenshot).
-3. **Present**: Results are instantly displayed in a popup. Close to dismiss and return.
+Download the latest `.dmg` from the [Releases](https://github.com/MUTRO888/Yisi/releases) page and drag it into the Applications folder.
 
-Shortcuts can be customized in Settings → General.
+### Three Steps to Convert
 
-**Five-minute setup:**
+1. **Select** -- Highlight text in any app, or press the screenshot shortcut to capture a screen region
+2. **Trigger** -- `Cmd + C + C` (text) / `Cmd + Shift + X` (screenshot)
+3. **Present** -- Results appear instantly in a popup. Close to dismiss
 
-Yisi supports Gemini, OpenAI, and Zhipu AI. We highly recommend starting with Zhipu AI—new user registrations get 200,000 free tokens, which is more than enough to cover Yisi's operations for a long time.
+Shortcuts are customizable in Settings > General.
 
-1. Navigate to the [Zhipu AI Platform](https://open.bigmodel.cn) to register and get an API Key.
-2. Open Yisi → Settings → AI Services.
-3. Select Zhipu AI as the provider, and paste the API Key.
-4. The requested models are already pre-configured right out of the box. You are welcome to switch them out if needed.
-5. All done. Ready to start using.
+### Five-Minute Setup
+
+Yisi supports five AI providers. We recommend starting with Zhipu AI -- new users receive free tokens upon registration.
+
+1. Go to [Zhipu AI Platform](https://open.bigmodel.cn) to register and get an API Key
+2. Open Yisi > Settings > AI Services
+3. Select Zhipu AI as the provider and paste the API Key
+4. Models are pre-configured out of the box
+5. Done. Ready to use
 
 ---
 
-## Epilogue
+## Installation Troubleshooting
 
-> Yisi, meaning.
->
-> Not a better AI assistant, but a different kind of relationship—
-> AI is no longer the "other" you consult, but quietly hidden away as a link in your actions.
->
-> Completely free, Open Source.
+Yisi is not yet code-signed, so macOS will show security warnings on first launch.
+
+**Option 1 -- Right-click to Open**
+
+1. Right-click (or Control-click) `Yisi.app` in Finder
+2. Select **Open** from the context menu
+3. Click **Open** in the confirmation dialog
+
+**Option 2 -- System Settings**
+
+1. Open **System Settings** > **Privacy & Security**
+2. Scroll to the **Security** section and click **Open Anyway**
+
+**Option 3 -- Terminal**
+
+```bash
+xattr -cr /Applications/Yisi.app
+```
+
+---
+
+## Tech Stack
+
+| Layer | Technology |
+|-------|-----------|
+| Language | Swift 5.9 |
+| UI Framework | SwiftUI |
+| Minimum OS | macOS 14 (Sonoma) |
+| Text Capture | Accessibility API + Clipboard fallback |
+| Screen Capture | ScreenCaptureKit |
+| Offline Translation | macOS System Translation |
+| AI Integration | Gemini / OpenAI / Zhipu / DeepSeek / MiniMax REST API |
+| Learning Engine | Local rule storage + automatic prompt injection |
+| Distribution | DMG (manual build) |
+
+---
+
+## Project Structure
+
+```
+Yisi/
+├── .github/workflows/       # CI/CD
+├── assets/                   # App icon and static assets
+├── scripts/                  # Build and utility scripts
+├── web/                      # Website (yisi.pages.dev)
+├── Yisi/
+│   ├── YisiApp.swift         # App entry, menu bar, shortcut registration
+│   ├── Core/
+│   │   ├── AI/               # AI service layer
+│   │   │   ├── AIService.swift       # Unified AI call interface
+│   │   │   ├── Models.swift          # Model definitions
+│   │   │   ├── Prompts/             # Translation and conversion prompts
+│   │   │   └── Providers/           # Gemini / OpenAI / Zhipu / DeepSeek / MiniMax
+│   │   ├── Capture/          # Text capture (Accessibility + Clipboard)
+│   │   ├── Design/           # Design system (themes, colors, visual effects)
+│   │   ├── History/          # Translation history persistence
+│   │   ├── Learning/         # Learned Rules engine
+│   │   ├── Localization/     # Multi-language support
+│   │   ├── Shared/           # Shared constants and configuration
+│   │   ├── Shortcut/         # Global shortcut management
+│   │   ├── SystemTranslation/# macOS native offline translation
+│   │   └── Utils/            # Utilities
+│   └── UI/
+│       ├── Components/       # Reusable UI components
+│       ├── Layout/           # Layout containers
+│       ├── ScreenCapture/    # Screenshot overlay
+│       ├── Settings/         # Settings panel + Welcome guide
+│       ├── Translation/      # Translation result popup
+│       └── Window/           # Window management
+├── Package.swift
+└── LICENSE                   # GPL-3.0
+```
+
+---
+
+## Build from Source
+
+```bash
+# Clone the repository
+git clone https://github.com/MUTRO888/Yisi.git
+cd Yisi
+
+# Open in Xcode and build
+open Yisi.xcodeproj
+# Or build via command line
+xcodebuild -scheme Yisi -configuration Release build
+```
+
+---
+
+## Supported AI Providers
+
+| Provider | Text Model | Vision Model | Notes |
+|----------|-----------|-------------|-------|
+| **Gemini** | Gemini Pro etc. | Gemini Pro Vision | Google AI |
+| **OpenAI** | GPT-4o etc. | GPT-4o | Any OpenAI-compatible service |
+| **Zhipu AI** | GLM-4 etc. | GLM-4V | Recommended for Chinese users, free tokens for new users |
+| **DeepSeek** | DeepSeek Chat | -- | Cost-effective |
+| **MiniMax** | MiniMax Chat | -- | Chinese LLM |
+
+Text and vision models can be configured independently for the optimal combination.
+
+---
+
+## Contributing
+
+Contributions are welcome. Before you start:
+
+1. Fork this repository and create a feature branch
+2. Open the project in Xcode and test locally
+3. Ensure consistent code style
+4. Submit a PR to the `main` branch with a clear description of changes
+
+Keep PRs focused -- one feature or fix per PR.
+
+---
+
+## License
+
+[GPL-3.0](LICENSE) -- Copyright (C) 2026 Sonian Mu
