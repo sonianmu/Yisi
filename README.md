@@ -1,9 +1,9 @@
-<img src="./assets/icon.png" width="32" height="32" alt="Yisi" style="vertical-align: middle; margin-right: 8px;" /> Yisi
-===
-
-**macOS 上的智能语义转换工具** -- 选中、触发、呈现。不打开对话框，不切换窗口，AI 在你的操作流中无声完成转换。
-
-[English](./README_en.md) | 简体中文
+<div align="center">
+  <img src="./assets/icon.png" width="120" height="120" alt="Yisi Icon">
+  <h1>Yisi</h1>
+  <p><b>macOS 上的智能语义转换工具</b> -- 选中、触发、呈现。不打开对话框，不切换窗口，AI 在你的操作流中无声完成转换。</p>
+  <p><a href="./README_en.md">English</a> | 简体中文</p>
+</div>
 
 [![GitHub release](https://img.shields.io/github/v/release/MUTRO888/Yisi)](https://github.com/MUTRO888/Yisi/releases)
 [![Platform](https://img.shields.io/badge/platform-macOS%2014%2B-lightgrey)](https://github.com/MUTRO888/Yisi/releases)

@@ -1,9 +1,9 @@
-<img src="./assets/icon.png" width="32" height="32" alt="Yisi" style="vertical-align: middle; margin-right: 8px;" /> Yisi
-===
-
-**Intelligent semantic conversion tool for macOS** -- Select, trigger, present. No chat windows, no context switching. AI completes the conversion silently within your workflow.
-
-[简体中文](./README.md) | English
+<div align="center">
+  <img src="./assets/icon.png" width="120" height="120" alt="Yisi Icon">
+  <h1>Yisi</h1>
+  <p><b>Intelligent semantic conversion tool for macOS</b> -- Select, trigger, present. No chat windows, no context switching. AI completes the conversion silently within your workflow.</p>
+  <p><a href="./README.md">简体中文</a> | English</p>
+</div>
 
 [![GitHub release](https://img.shields.io/github/v/release/MUTRO888/Yisi)](https://github.com/MUTRO888/Yisi/releases)
 [![Platform](https://img.shields.io/badge/platform-macOS%2014%2B-lightgrey)](https://github.com/MUTRO888/Yisi/releases)
