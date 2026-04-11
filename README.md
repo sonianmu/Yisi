@@ -127,6 +127,7 @@ xattr -cr /Applications/Yisi.app
 ```
 Yisi/
 ├── .github/workflows/       # CI/CD
+├── docs/                    # 设计文档
 ├── assets/                   # 应用图标等静态资源
 ├── scripts/                  # 构建和辅助脚本
 ├── web/                      # 官网（yisi.pages.dev）
@@ -167,10 +168,10 @@ Yisi/
 git clone https://github.com/MUTRO888/Yisi.git
 cd Yisi
 
-# 使用 Xcode 打开并构建
-open Yisi.xcodeproj
+# 在 Xcode 中打开 Swift Package
+xed .
 # 或使用命令行
-xcodebuild -scheme Yisi -configuration Release build
+swift build -c release
 ```
 
 ---

@@ -20,6 +20,7 @@ DerivedData
 # Swift Package Manager
 #
 .build/
+.swiftpm/
 
 # CocoaPods
 #
@@ -52,6 +53,7 @@ DerivedData
 #
 .idea/
 .vscode/
+.claude/
 
 # Playwright MCP (browser automation cache)
 .playwright-mcp/

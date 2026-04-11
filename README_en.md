@@ -127,6 +127,7 @@ xattr -cr /Applications/Yisi.app
 ```
 Yisi/
 ├── .github/workflows/       # CI/CD
+├── docs/                    # Design docs
 ├── assets/                   # App icon and static assets
 ├── scripts/                  # Build and utility scripts
 ├── web/                      # Website (yisi.pages.dev)
@@ -167,10 +168,10 @@ Yisi/
 git clone https://github.com/MUTRO888/Yisi.git
 cd Yisi
 
-# Open in Xcode and build
-open Yisi.xcodeproj
+# Open the Swift package in Xcode
+xed .
 # Or build via command line
-xcodebuild -scheme Yisi -configuration Release build
+swift build -c release
 ```
 
 ---
