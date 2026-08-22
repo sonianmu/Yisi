@@ -1,0 +1,26 @@
+<svg width="256" height="256" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg">
+  <!-- Yisi app icon: purple gradient rounded square with three fading bars.
+       Faithfully reproduced from web/src/components/YisiAppIcon.{tsx,css} -->
+  <defs>
+    <linearGradient id="yisi-bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#555386"/>
+      <stop offset="1" stop-color="#474575"/>
+    </linearGradient>
+    <filter id="yisi-glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="3.5"/>
+    </filter>
+  </defs>
+
+  <!-- rounded square, radius/padding = 22% of size -->
+  <rect width="256" height="256" rx="56" fill="url(#yisi-bg)"/>
+
+  <!-- bar 1: full width, opacity 0.3 -->
+  <rect x="56" y="75.5" width="144" height="23" rx="11.5" fill="#ffffff" opacity="0.3"/>
+
+  <!-- bar 2: 65% width, opacity 0.55 -->
+  <rect x="56" y="116.5" width="94" height="23" rx="11.5" fill="#ffffff" opacity="0.55"/>
+
+  <!-- bar 3: 40% width, full opacity + soft glow -->
+  <rect x="56" y="157.5" width="58" height="23" rx="11.5" fill="#ffffff" filter="url(#yisi-glow)" opacity="0.5"/>
+  <rect x="56" y="157.5" width="58" height="23" rx="11.5" fill="#ffffff"/>
+</svg>
