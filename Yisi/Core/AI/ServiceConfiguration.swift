@@ -97,6 +97,14 @@ struct ResolvedAIService {
     let model: String
     let capabilities: ModelCapabilities
 
+    func requireConfigured() throws {
+        guard !apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+              !model.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+              !baseURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            throw AIServiceError.configuration("No AI service is configured. Configure an AI service or switch to the System Translation engine in Translation settings.")
+        }
+    }
+
     func requestConfig(temperature: Double, maxTokens: Int, deepThinking: Bool) -> AIRequestConfig {
         AIRequestConfig(apiKey: apiKey, model: model, temperature: temperature,
                         maxTokens: maxTokens, enableNativeReasoning: deepThinking,
@@ -150,9 +158,9 @@ enum AIConfigurationStore {
         return presetCapabilities(provider: provider, model: model)
     }
 
-    static func saveCapabilities(_ value: ModelCapabilities, provider: APIProvider, model: String, image: Bool) {
+    static func saveCapabilities(_ value: ModelCapabilities, provider: APIProvider, model: String, image: Bool, defaults: UserDefaults = .standard) {
         if let data = try? JSONEncoder().encode(value) {
-            UserDefaults.standard.set(data, forKey: overrideKey(provider: provider, model: model, image: image))
+            defaults.set(data, forKey: overrideKey(provider: provider, model: model, image: image))
         }
     }
 

@@ -2,22 +2,15 @@ import SwiftUI
 import ScreenCaptureKit
 
 struct WelcomeView: View {
+    @Environment(\.colorScheme) private var colorScheme
+    @AppStorage(AppDefaults.Keys.appTheme) private var appTheme = AppDefaults.appTheme
     @State private var currentStep: Int
     @State private var accessibilityGranted: Bool
     @State private var screenCaptureGranted: Bool
     @State private var timer: Timer?
     @State private var pulsing = false
-    @State private var heroLoaded = false
-    @State private var readyLoaded = false
     @State private var requestingScreenCapture = false
     @State private var relaunching = false
-
-    @AppStorage(AppDefaults.Keys.apiProvider) private var apiProvider: String = AppDefaults.apiProvider
-    @AppStorage(AppDefaults.Keys.geminiApiKey) private var geminiKey: String = ""
-    @AppStorage(AppDefaults.Keys.openaiApiKey) private var openaiKey: String = ""
-    @AppStorage(AppDefaults.Keys.zhipuApiKey) private var zhipuKey: String = ""
-    @AppStorage(AppDefaults.Keys.minimaxApiKey) private var minimaxKey: String = ""
-    @AppStorage(AppDefaults.Keys.deepseekApiKey) private var deepseekKey: String = ""
 
     var onComplete: () -> Void
     private let tracksProgress: Bool
@@ -39,22 +32,10 @@ struct WelcomeView: View {
         }
     }
 
-    private var hasApiKey: Bool {
-        switch apiProvider {
-        case "Gemini": return !geminiKey.isEmpty
-        case "OpenAI": return !openaiKey.isEmpty
-        case "MiniMax": return !minimaxKey.isEmpty
-        case "DeepSeek": return !deepseekKey.isEmpty
-        default: return !zhipuKey.isEmpty
-        }
-    }
-
     var body: some View {
         ZStack {
-            ThemeBackground().edgesIgnoringSafeArea(.all)
-            ambientGlow
-                .opacity(currentStep == 0 || currentStep == 4 ? 1 : 0.3)
-                .animation(.easeInOut(duration: 0.6), value: currentStep)
+            (colorScheme == .dark ? Color(hex: "202024") : Color(hex: "F8F7F4"))
+                .ignoresSafeArea()
 
             VStack(spacing: 0) {
                 if currentStep >= 1 && currentStep <= 3 {
@@ -74,6 +55,7 @@ struct WelcomeView: View {
             }
         }
         .frame(width: 420, height: 520)
+        .preferredColorScheme(ColorScheme(from: appTheme))
         .onAppear {
             startPolling()
             withAnimation(.easeInOut(duration: 2.0).repeatForever(autoreverses: true)) {
@@ -95,148 +77,72 @@ struct WelcomeView: View {
         )
     }
 
-    // MARK: - Ambient Glow
+    // MARK: - Welcome
 
-    private var ambientGlow: some View {
-        ZStack {
-            RadialGradient(
-                gradient: Gradient(colors: [
-                    AppColors.yisiPurple.opacity(0.1),
-                    AppColors.yisiPurple.opacity(0)
-                ]),
-                center: UnitPoint(x: 0.5, y: 0.35),
-                startRadius: 20,
-                endRadius: 200
-            )
-            RadialGradient(
-                gradient: Gradient(colors: [
-                    AppColors.yisiLight.opacity(0.06),
-                    AppColors.yisiLight.opacity(0)
-                ]),
-                center: UnitPoint(x: 0.3, y: 0.65),
-                startRadius: 0,
-                endRadius: 160
-            )
+    private var brandMark: some View {
+        VStack(alignment: .leading, spacing: 7) {
+            ForEach([64.0, 42.0, 24.0], id: \.self) { width in
+                Capsule().fill(AppColors.primary).frame(width: width, height: 6)
+            }
         }
+        .accessibilityHidden(true)
     }
-
-    // MARK: - Page 0: Hero
 
     private var heroPage: some View {
-        VStack(spacing: 0) {
+        VStack(alignment: .leading, spacing: 0) {
+            brandMark.padding(.top, 56)
+            Text("Yisi")
+                .font(.system(size: 48, weight: .light, design: .serif))
+                .tracking(1).padding(.top, 26)
+            Text("有Yisi，才有意思。".localized)
+                .font(.system(size: 15, design: .serif))
+                .foregroundColor(.secondary).padding(.top, 8)
+            Rectangle().fill(AppColors.primary.opacity(0.15)).frame(height: 1).padding(.vertical, 28)
+            Text("Select. Translate. Keep your flow.".localized)
+                .font(.system(size: 19, weight: .medium, design: .serif))
+            Text("Translate selected text or screenshots, without leaving what you are doing.".localized)
+                .font(.system(size: 13)).foregroundColor(.secondary)
+                .fixedSize(horizontal: false, vertical: true).padding(.top, 10)
             Spacer()
-
-            ZStack {
-                WelcomeLoadingBars()
-                    .frame(width: 200, height: 60)
-                    .opacity(heroLoaded ? 0 : 1)
-
-                VStack(spacing: 0) {
-                    Text("Yisi")
-                        .font(.system(size: 30, weight: .light, design: .serif))
-                        .tracking(2)
-                        .foregroundColor(.primary)
-
-                    Text("有Yisi，才有意思。".localized)
-                        .font(.system(size: 12, weight: .regular, design: .serif))
-                        .foregroundColor(.secondary.opacity(0.7))
-                        .padding(.top, 8)
+            Button { withAnimation { currentStep = 1 } } label: {
+                HStack {
+                    Text("Next".localized)
+                    Spacer()
+                    Image(systemName: "arrow.right")
                 }
-                .opacity(heroLoaded ? 1 : 0)
-                .offset(y: heroLoaded ? 0 : 8)
+                .font(.system(size: 14, weight: .medium))
+                .foregroundColor(.white).padding(14)
+                .background(AppColors.primary, in: RoundedRectangle(cornerRadius: 8))
             }
-            .animation(.easeInOut(duration: 0.8), value: heroLoaded)
-
-            Spacer()
-
-            gradientLine
-                .padding(.bottom, 32)
-                .opacity(heroLoaded ? 1 : 0)
-                .animation(.easeOut(duration: 0.6).delay(0.2), value: heroLoaded)
-
-            filledButton("Next".localized) {
-                withAnimation { currentStep = 1 }
-            }
-            .padding(.bottom, 36)
-            .opacity(heroLoaded ? 1 : 0)
-            .animation(.easeOut(duration: 0.5).delay(0.4), value: heroLoaded)
+            .buttonStyle(.plain).padding(.bottom, 36)
         }
-        .onAppear {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
-                heroLoaded = true
-            }
-        }
+        .padding(.horizontal, 40)
     }
 
-    // MARK: - Page 1: AI Config
+    // MARK: - AI Configuration
 
     private var aiConfigPage: some View {
-        VStack(spacing: 0) {
+        VStack(alignment: .leading, spacing: 16) {
             Text("AI Service".localized)
-                .font(.system(size: 22, weight: .medium, design: .serif))
-                .foregroundColor(.primary)
-                .padding(.top, 48)
-
-            Text("Optional. You can set this up later in Settings.".localized)
-                .font(.system(size: 12, design: .serif))
-                .foregroundColor(.secondary)
-                .multilineTextAlignment(.center)
-                .padding(.top, 8)
-
-            VStack(spacing: 14) {
-                Picker("", selection: $apiProvider) {
-                    Text("Gemini").tag("Gemini")
-                    Text("OpenAI").tag("OpenAI")
-                    Text("Zhipu AI").tag("Zhipu AI")
-                    Text("MiniMax").tag("MiniMax")
-                    Text("DeepSeek").tag("DeepSeek")
-                }
-                .pickerStyle(.menu)
-                .frame(width: 280)
-
-                Group {
-                    if apiProvider == "Gemini" {
-                        SecureField("Gemini API Key", text: $geminiKey)
-                    } else if apiProvider == "OpenAI" {
-                        SecureField("OpenAI API Key", text: $openaiKey)
-                    } else if apiProvider == "MiniMax" {
-                        SecureField("MiniMax API Key", text: $minimaxKey)
-                    } else if apiProvider == "DeepSeek" {
-                        SecureField("DeepSeek API Key", text: $deepseekKey)
-                    } else {
-                        SecureField("Zhipu API Key", text: $zhipuKey)
-                    }
-                }
-                .textFieldStyle(PlainTextFieldStyle())
-                .font(.system(size: 13))
-                .padding(.vertical, 10)
-                .padding(.horizontal, 12)
-                .background(AppColors.primary.opacity(0.04))
-                .cornerRadius(8)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 8)
-                        .stroke(AppColors.primary.opacity(0.1), lineWidth: 0.5)
-                )
-                .frame(width: 280)
+                .font(.system(size: 24, weight: .medium, design: .serif))
+                .padding(.top, 26)
+            Text("Enter your API key and model, then test and save. You can also configure this later in Settings.".localized)
+                .font(.system(size: 12)).foregroundColor(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            ScrollView {
+                AIServiceConfigurationForm().padding(.vertical, 4)
             }
-            .padding(.top, 32)
-
-            Spacer()
-
-            nextButton(highlighted: hasApiKey) {
-                withAnimation { currentStep = 2 }
+            .scrollIndicators(.hidden)
+            HStack {
+                Button("Set up later".localized) { withAnimation { currentStep = 2 } }
+                    .buttonStyle(.plain).foregroundColor(.secondary)
+                Spacer()
+                Button("Next".localized) { withAnimation { currentStep = 2 } }
+                    .buttonStyle(.plain).foregroundColor(AppColors.primary)
             }
-
-            Button(action: { withAnimation { currentStep = 2 } }) {
-                Text("Skip".localized)
-                    .font(.system(size: 12, design: .serif))
-                    .foregroundColor(.secondary)
-            }
-            .buttonStyle(.plain)
-            .padding(.top, 8)
-            .padding(.bottom, 32)
+            .font(.system(size: 13)).padding(.bottom, 30)
         }
-        .animation(.easeInOut(duration: 0.3), value: hasApiKey)
+        .padding(.horizontal, 36)
     }
 
     // MARK: - Page 2: Accessibility
@@ -244,6 +150,13 @@ struct WelcomeView: View {
     private var accessibilityPage: some View {
         VStack(spacing: 0) {
             Spacer()
+
+            Image(systemName: "command")
+                .font(.system(size: 30, weight: .light))
+                .foregroundColor(AppColors.primary)
+                .frame(width: 72, height: 72)
+                .background(AppColors.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 18))
+                .padding(.bottom, 24)
 
             Text("Accessibility".localized)
                 .font(.system(size: 22, weight: .medium, design: .serif))
@@ -301,6 +214,13 @@ struct WelcomeView: View {
     private var screenRecordingPage: some View {
         VStack(spacing: 0) {
             Spacer()
+
+            Image(systemName: "viewfinder")
+                .font(.system(size: 30, weight: .light))
+                .foregroundColor(AppColors.primary)
+                .frame(width: 72, height: 72)
+                .background(AppColors.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 18))
+                .padding(.bottom, 24)
 
             Text("Screen Recording".localized)
                 .font(.system(size: 22, weight: .medium, design: .serif))
@@ -371,107 +291,25 @@ struct WelcomeView: View {
     // MARK: - Page 4: Ready
 
     private var readyPage: some View {
-        VStack(spacing: 0) {
+        VStack(alignment: .leading, spacing: 0) {
+            brandMark.padding(.top, 64)
+            Text("You are ready.".localized)
+                .font(.system(size: 30, weight: .light, design: .serif)).padding(.top, 32)
+            Text("Yisi is in your menu bar. Select text or take a screenshot to begin.".localized)
+                .font(.system(size: 13)).foregroundColor(.secondary)
+                .fixedSize(horizontal: false, vertical: true).padding(.top, 14)
             Spacer()
-
-            ZStack {
-                WelcomeLoadingBars()
-                    .frame(width: 200, height: 60)
-                    .opacity(readyLoaded ? 0 : 1)
-
-                VStack(spacing: 0) {
-                    Text("Yisi")
-                        .font(.system(size: 30, weight: .light, design: .serif))
-                        .tracking(2)
-                        .foregroundColor(.primary)
-
-                    Text("有Yisi，才有意思。".localized)
-                        .font(.system(size: 12, weight: .regular, design: .serif))
-                        .foregroundColor(.secondary.opacity(0.7))
-                        .padding(.top, 8)
-                }
-                .opacity(readyLoaded ? 1 : 0)
-                .offset(y: readyLoaded ? 0 : 8)
+            Button(action: onComplete) {
+                Text("Get Started".localized)
+                    .font(.system(size: 14, weight: .medium)).foregroundColor(.white)
+                    .frame(maxWidth: .infinity).padding(.vertical, 14)
+                    .background(AppColors.primary, in: RoundedRectangle(cornerRadius: 8))
             }
-            .animation(.easeInOut(duration: 0.8), value: readyLoaded)
-
-            gradientLine
-                .padding(.top, 16)
-                .opacity(readyLoaded ? 1 : 0)
-                .animation(.easeOut(duration: 0.6).delay(0.2), value: readyLoaded)
-
-            Spacer()
-
-            filledButton("Get Started".localized) {
-                onComplete()
-            }
-            .padding(.bottom, 36)
-            .opacity(readyLoaded ? 1 : 0)
-            .animation(.easeOut(duration: 0.5).delay(0.4), value: readyLoaded)
+                .buttonStyle(.plain)
+                .padding(.bottom, 36)
         }
-        .onAppear {
-            UserDefaults.standard.set(true, forKey: AppDefaults.Keys.welcomeCompleted)
-            DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
-                readyLoaded = true
-            }
-        }
-    }
-
-    // MARK: - Shared Components
-
-    private func filledButton(_ title: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Text(title)
-                .font(.system(size: 14, weight: .medium, design: .serif))
-                .foregroundColor(.white)
-                .frame(maxWidth: .infinity)
-                .frame(height: 42)
-                .background(
-                    RoundedRectangle(cornerRadius: 10)
-                        .fill(AppColors.primary)
-                )
-        }
-        .buttonStyle(.plain)
-        .padding(.horizontal, 52)
-    }
-
-    private func nextButton(highlighted: Bool, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Text("Next".localized)
-                .font(.system(size: 14, weight: .medium, design: .serif))
-                .foregroundColor(highlighted ? .white : AppColors.primary.opacity(0.5))
-                .frame(maxWidth: .infinity)
-                .frame(height: 42)
-                .background(
-                    RoundedRectangle(cornerRadius: 10)
-                        .fill(highlighted ? AppColors.primary : Color.clear)
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: 10)
-                        .stroke(
-                            highlighted ? Color.clear : AppColors.primary.opacity(0.15),
-                            lineWidth: 1
-                        )
-                )
-        }
-        .buttonStyle(.plain)
-        .padding(.horizontal, 52)
-    }
-
-    private var gradientLine: some View {
-        RoundedRectangle(cornerRadius: 0.5)
-            .fill(
-                LinearGradient(
-                    colors: [
-                        AppColors.primary.opacity(0),
-                        AppColors.primary.opacity(0.2),
-                        AppColors.primary.opacity(0)
-                    ],
-                    startPoint: .leading,
-                    endPoint: .trailing
-                )
-            )
-            .frame(width: 160, height: 1)
+        .padding(.horizontal, 40)
+        .onAppear { UserDefaults.standard.set(true, forKey: AppDefaults.Keys.welcomeCompleted) }
     }
 
     // MARK: - Helpers
@@ -537,39 +375,6 @@ struct WelcomeView: View {
         task.arguments = arguments
         try? task.run()
         NSApp.terminate(nil)
-    }
-}
-
-// MARK: - Welcome Loading Bars
-
-private struct WelcomeLoadingBars: View {
-    @State private var isAnimating = false
-
-    private let ratios: [CGFloat] = [0.85, 0.55, 0.35]
-    private let barHeight: CGFloat = 5
-    private let spacing: CGFloat = 7
-
-    var body: some View {
-        GeometryReader { geo in
-            let baseWidth = geo.size.width * 0.85
-            VStack(spacing: spacing) {
-                ForEach(0..<3, id: \.self) { i in
-                    RoundedRectangle(cornerRadius: 2.5)
-                        .fill(isAnimating ? AppColors.yisiLight : AppColors.mist)
-                        .frame(width: baseWidth * ratios[i], height: barHeight)
-                        .scaleEffect(x: isAnimating ? 1.0 : 0.85, y: 1.0)
-                        .opacity(isAnimating ? 1.0 : 0.4)
-                        .animation(
-                            .easeInOut(duration: 0.9)
-                                .repeatForever(autoreverses: true)
-                                .delay(Double(i) * 0.15),
-                            value: isAnimating
-                        )
-                }
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
-        }
-        .onAppear { isAnimating = true }
     }
 }
 

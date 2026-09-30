@@ -1,132 +1,110 @@
 import SwiftUI
 
-struct CustomServiceForm: View {
+struct AIServiceConfigurationForm: View {
     let imageConfiguration: Bool
-    @State private var settings: CustomServiceConfiguration
-    @State private var apiKey = ""
-    @State private var keyStatus = ""
-    @State private var keySaved = false
-    @State private var savedAPIKey = ""
-    @AppStorage(AppDefaults.Keys.enableDeepThinking) private var deepThinking = AppDefaults.enableDeepThinking
+    @State private var draft: AIServiceDraft
+    @State private var testing = false
+    @State private var status = ""
+    @State private var succeeded = false
+    @State private var task: Task<Void, Never>?
 
-    init(imageConfiguration: Bool) {
+    init(imageConfiguration: Bool = false) {
         self.imageConfiguration = imageConfiguration
-        _settings = State(initialValue: AIConfigurationStore.custom(image: imageConfiguration))
-    }
-
-    private var connection: ResolvedAIService {
-        ResolvedAIService(provider: .custom, apiProtocol: settings.apiProtocol, baseURL: settings.baseURL,
-                          apiKey: apiKey, model: settings.model, capabilities: settings.capabilities)
+        _draft = State(initialValue: AIServiceDraft.load(image: imageConfiguration))
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            adaptationRow("Protocol") {
-                CustomDropdown(selection: Binding(get: { settings.apiProtocol.rawValue }, set: { raw in
-                    guard let value = AIProtocol(rawValue: raw), value != settings.apiProtocol else { return }
-                    settings.apiProtocol = value
-                    settings.capabilities = ModelCapabilities()
-                }), options: AIProtocol.allCases.map(\.rawValue),
-                   displayNames: AIProtocol.allCases.map { $0.rawValue.localized })
-            }
-            APIKeyInput(label: "Base URL".localized, text: $settings.baseURL,
-                        placeholder: "https://example.com/v1", isSecure: false)
-            Text("Use the API base path, including /v1 or /v1beta when required.".localized)
-                .font(.system(size: 11, design: .serif)).foregroundStyle(.secondary)
-            APIKeyInput(label: "API Key".localized, text: $apiKey, placeholder: "Optional for local services".localized)
-            HStack(spacing: 10) {
-                Button("Save API Key".localized, action: saveKey)
-                    .buttonStyle(.borderless)
-                if !keyStatus.isEmpty {
-                    Text(keyStatus.localized).foregroundStyle(keySaved ? Color.secondary : Color.red)
+        VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: 10) {
+                adaptationRow("Provider") {
+                    CustomDropdown(selection: Binding(get: { draft.provider.rawValue }, set: { raw in
+                        if let provider = APIProvider(rawValue: raw) {
+                            draft = AIServiceDraft.load(image: imageConfiguration, provider: provider)
+                            status = ""
+                        }
+                    }), options: providerOptions, displayNames: providerOptions.map { $0.localized })
                 }
+                if draft.provider == .custom {
+                    adaptationRow("Protocol") {
+                        CustomDropdown(selection: Binding(get: { draft.apiProtocol.rawValue }, set: { raw in
+                            if let value = AIProtocol(rawValue: raw) {
+                                draft.apiProtocol = value
+                                draft.capabilities = ModelCapabilities()
+                                draft.capabilities.supportsImages = imageConfiguration
+                            }
+                        }), options: AIProtocol.allCases.map(\.rawValue), displayNames: AIProtocol.allCases.map { $0.rawValue.localized })
+                    }
+                    APIKeyInput(label: "Base URL".localized, text: $draft.baseURL, placeholder: "https://example.com/v1", isSecure: false)
+                }
+                APIKeyInput(label: "API Key".localized, text: $draft.apiKey, placeholder: "Enter an API key.".localized)
+                APIKeyInput(label: "Model".localized, text: $draft.model, placeholder: "Enter any model ID".localized, isSecure: false)
+                Divider().opacity(0.2)
+                adaptationRow("Deep Thinking Preference") { ElegantToggle(isOn: $draft.deepThinking) }
+                CapabilityEditor(capabilities: $draft.capabilities, apiProtocol: draft.apiProtocol)
             }
-            .font(.system(size: 11, design: .serif))
-            APIKeyInput(label: "Model".localized, text: $settings.model, placeholder: "Enter any model ID".localized, isSecure: false)
-            CapabilityEditor(capabilities: $settings.capabilities, apiProtocol: settings.apiProtocol)
-            ConnectionTestButton(connection: connection, deepThinking: deepThinking, testImage: imageConfiguration)
-                .id("\(settings).\(apiKey.hashValue).\(deepThinking)")
-        }
-        .onAppear {
-            if let data = KeychainHelper.shared.read(service: "com.yisi.app", account: AIConfigurationStore.credentialAccount(image: imageConfiguration)) {
-                savedAPIKey = String(data: data, encoding: .utf8) ?? ""
-                apiKey = savedAPIKey
+            .disabled(testing)
+            HStack(spacing: 10) {
+                Button("Test and Save".localized, action: testAndSave)
+                    .buttonStyle(.plain)
+                    .foregroundColor(AppColors.primary)
+                    .disabled(testing)
+                if testing { ProgressView().controlSize(.small) }
+            }
+            .font(.system(size: 12))
+            if !status.isEmpty {
+                Text(status)
+                    .font(.system(size: 11))
+                    .foregroundColor(succeeded ? .secondary : .red)
+                    .textSelection(.enabled)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
-        .onChange(of: settings) { old, value in
-            var value = value
-            if old.modelIdentity != value.modelIdentity {
-                AIConfigurationStore.saveCustomCapabilities(old, image: imageConfiguration)
-                value.capabilities = AIConfigurationStore.customCapabilities(value, image: imageConfiguration)
-                settings = value
+        .onChange(of: draft.model) { _, model in
+            if draft.provider != .custom {
+                draft.capabilities = AIConfigurationStore.capabilities(provider: draft.provider, model: model,
+                                                                        image: imageConfiguration)
+                if imageConfiguration { draft.capabilities.supportsImages = true }
             }
-            AIConfigurationStore.saveCustom(value, image: imageConfiguration)
-            AIConfigurationStore.saveCustomCapabilities(value, image: imageConfiguration)
+            status = ""
         }
-        .onChange(of: apiKey) { _, value in
-            keySaved = value == savedAPIKey
-            keyStatus = keySaved ? "" : "API key not saved. Save it before using this service."
-        }
+        .onChange(of: draft.apiKey) { _, _ in status = "" }
+        .onChange(of: draft.baseURL) { _, _ in status = "" }
+        .onChange(of: draft.capabilities) { _, _ in status = "" }
+        .onChange(of: draft.deepThinking) { _, _ in status = "" }
+        .onDisappear { task?.cancel() }
     }
 
-    private func saveKey() {
-        do {
-            try KeychainHelper.shared.saveChecked(Data(apiKey.trimmingCharacters(in: .whitespacesAndNewlines).utf8),
-                service: "com.yisi.app", account: AIConfigurationStore.credentialAccount(image: imageConfiguration))
-            keySaved = true
-            savedAPIKey = apiKey
-            keyStatus = "API key saved to Keychain."
-        } catch {
-            keySaved = false
-            keyStatus = error.localizedDescription
+    private var providerOptions: [String] {
+        imageConfiguration ? ["Gemini", "OpenAI", "Zhipu AI", "Custom Service"] :
+            ["Gemini", "OpenAI", "Zhipu AI", "MiniMax", "DeepSeek", "Custom Service"]
+    }
+
+    private func testAndSave() {
+        guard !testing else { return }
+        let submitted = draft
+        testing = true
+        status = ""
+        task = Task { @MainActor in
+            defer { testing = false }
+            do {
+                let response = try await submitted.testAndSave()
+                succeeded = true
+                status = "Connection successful. Settings saved.".localized + "\n" + String(response.prefix(160))
+            } catch {
+                guard !Task.isCancelled else { return }
+                succeeded = false
+                status = "Test failed. Previous settings were kept.".localized + "\n" + error.localizedDescription
+            }
         }
     }
 }
 
-struct ModelAdaptationForm: View {
-    let provider: APIProvider
-    let model: String
-    let imageConfiguration: Bool
-    @State private var capabilities: ModelCapabilities
-    @AppStorage(AppDefaults.Keys.enableDeepThinking) private var deepThinking = AppDefaults.enableDeepThinking
-
-    init(provider: APIProvider, model: String, imageConfiguration: Bool) {
-        self.provider = provider
-        self.model = model
-        self.imageConfiguration = imageConfiguration
-        _capabilities = State(initialValue: AIConfigurationStore.capabilities(provider: provider, model: model, image: imageConfiguration))
-    }
-
-    private var connection: ResolvedAIService {
-        let template = AIConfigurationStore.presetConnection(provider: provider)
-        let keyPrefix = imageConfiguration ? "image_" : ""
-        return ResolvedAIService(provider: provider, apiProtocol: template.apiProtocol, baseURL: template.baseURL,
-            apiKey: UserDefaults.standard.string(forKey: "\(keyPrefix)\(template.keyPrefix)_api_key") ?? "",
-            model: model, capabilities: capabilities)
-    }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            CapabilityEditor(capabilities: $capabilities, apiProtocol: connection.apiProtocol)
-            ConnectionTestButton(connection: connection, deepThinking: deepThinking, testImage: imageConfiguration)
-                .id("\(capabilities).\(connection.apiKey.hashValue).\(deepThinking)")
-        }
-        .onChange(of: capabilities) { _, value in
-            AIConfigurationStore.saveCapabilities(value, provider: provider, model: model, image: imageConfiguration)
-        }
-    }
-}
-
-private struct CapabilityEditor: View {
+struct CapabilityEditor: View {
     @Binding var capabilities: ModelCapabilities
     let apiProtocol: AIProtocol
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text(capabilities.reasoningNotice.localized)
-                .font(.system(size: 11, design: .serif))
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
             DisclosureGroup("Advanced Adaptation".localized) {
                 VStack(alignment: .leading, spacing: 12) {
                     adaptationRow("Reasoning Control") {
@@ -165,8 +143,6 @@ private struct CapabilityEditor: View {
                         }
                     }
                     integerRow("Output Token Limit", value: $capabilities.outputTokenLimit)
-                    Text("Capabilities are saved for this model. Unknown models follow service defaults.".localized)
-                        .font(.system(size: 11, design: .serif)).foregroundStyle(.secondary)
                 }
                 .padding(.top, 10)
             }
@@ -183,68 +159,10 @@ private struct CapabilityEditor: View {
     }
 }
 
-private struct ConnectionTestButton: View {
-    let connection: ResolvedAIService
-    let deepThinking: Bool
-    let testImage: Bool
-    @State private var task: Task<Void, Never>?
-    @State private var testing = false
-    @State private var status = ""
-    @State private var succeeded = false
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack(spacing: 10) {
-                Button("Test Connection".localized, action: testConnection)
-                    .buttonStyle(.borderless).disabled(testing)
-                if testing { ProgressView().controlSize(.small) }
-                Text("Sends a small test request using the current thinking preference.".localized)
-                    .foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
-            }
-            if !status.isEmpty {
-                Text(status.localized).foregroundStyle(succeeded ? Color.secondary : Color.red)
-                    .textSelection(.enabled).fixedSize(horizontal: false, vertical: true)
-            }
-        }
-        .font(.system(size: 11, design: .serif))
-        .onDisappear { task?.cancel() }
-    }
-
-    private func testConnection() {
-        testing = true
-        status = ""
-        task = Task { @MainActor in
-            defer { testing = false }
-            do {
-                // A small blank PNG exercises the selected image protocol without sending user content.
-                let image = testImage ? Data(base64Encoded: "iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAIAAAD8GO2jAAAAJklEQVR4nO3NMQ0AAAwDoPo33arYsQQMkB6LQCAQCAQCgUAg+BIMi1X0pjxKe0gAAAAASUVORK5CYII=") : nil
-                let messages = [AIMessage(role: .system, text: "Return only valid JSON: {\"result\":\"ok\"}."),
-                                AIMessage(role: .user, text: "Confirm the connection by returning the requested JSON.", image: image)]
-                let response = try await AIHTTPTransport().send(messages: messages,
-                    config: connection.requestConfig(temperature: 0.1, maxTokens: 1024, deepThinking: deepThinking))
-                guard !Task.isCancelled else { return }
-                // Parse actual model output; HTTP success alone does not prove usable JSON output.
-                let cleaned = response.replacingOccurrences(of: "```json", with: "").replacingOccurrences(of: "```", with: "")
-                guard let data = cleaned.data(using: .utf8),
-                      let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-                      (json["result"] as? String)?.lowercased() == "ok" else {
-                    throw AIServiceError.configuration("Connected, but the model did not return the expected result JSON.")
-                }
-                succeeded = true
-                status = "Connection and result JSON verified."
-            } catch {
-                guard !Task.isCancelled else { return }
-                succeeded = false
-                status = error.localizedDescription
-            }
-        }
-    }
-}
-
 private func adaptationRow<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
     HStack {
         Text(title.localized).font(.system(size: 13, design: .serif)).foregroundStyle(.secondary)
-            .frame(width: 110, alignment: .leading)
+            .frame(width: 80, alignment: .leading)
         content()
         Spacer(minLength: 0)
     }

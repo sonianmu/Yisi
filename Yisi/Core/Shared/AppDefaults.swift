@@ -13,6 +13,8 @@ enum AppDefaults {
         static let hasLaunchedBefore = "has_launched_before"
         static let welcomeCompleted = "welcome_completed"
         static let welcomeStep = "welcome_step"
+        static let repairPending = "repair_pending"
+        static let repairBackupPath = "repair_backup_path"
         static let launchAtLogin = "launch_at_login"
         static let autoCheckUpdates = "auto_check_updates"
 
@@ -70,7 +72,7 @@ enum AppDefaults {
     static let autoCheckUpdates = true
 
     // Translation
-    static let translationEngine = "system"
+    static let translationEngine = "ai"
     static let defaultSourceLanguage = "Auto Detect"
     static let defaultTargetLanguage = "Simplified Chinese"
     static let enableImproveFeature = false
@@ -79,20 +81,20 @@ enum AppDefaults {
 
     // AI Service - Text
     static let apiProvider = "Zhipu AI"
-    static let geminiModel = "gemini-2.0-flash-exp"
-    static let openaiModel = "gpt-4o-mini"
-    static let zhipuModel = "GLM-4.5-Air"
-    static let minimaxModel = "MiniMax-M2.5"
-    static let deepseekModel = "deepseek-chat"
+    static let geminiModel = ""
+    static let openaiModel = ""
+    static let zhipuModel = ""
+    static let minimaxModel = ""
+    static let deepseekModel = ""
     static let enableDeepThinking = false
 
     // AI Service - Image
     static let imageProcessingStrategy = "ai_vision"
     static let applyApiToImageMode = false
     static let imageApiProvider = "Zhipu AI"
-    static let imageGeminiModel = "gemini-2.5-flash"
-    static let imageOpenaiModel = "gpt-4o-mini"
-    static let imageZhipuModel = "GLM-4.5V"
+    static let imageGeminiModel = ""
+    static let imageOpenaiModel = ""
+    static let imageZhipuModel = ""
 
     // Shortcuts
     static let globalShortcutKeyCode: UInt16 = 16    // Y

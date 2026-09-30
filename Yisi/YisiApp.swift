@@ -49,7 +49,16 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         NSLog("Yisi startup: path=%@ step=%ld accessibility=%d screenCapture=%d completed=%d",
               Bundle.main.bundlePath, savedStep, accessibilityGranted ? 1 : 0,
               screenCaptureGranted ? 1 : 0, completed ? 1 : 0)
-        if !completed {
+        let repaired = UserDefaults.standard.bool(forKey: AppDefaults.Keys.repairPending)
+        if repaired {
+            UserDefaults.standard.removeObject(forKey: AppDefaults.Keys.repairPending)
+            if accessibilityGranted && screenCaptureGranted {
+                UserDefaults.standard.set(true, forKey: AppDefaults.Keys.welcomeCompleted)
+                toggleSettings()
+            } else {
+                showWelcome()
+            }
+        } else if !completed {
             if WelcomeProgress.shouldOpenHome(
                 savedStep: savedStep,
                 accessibilityGranted: accessibilityGranted,
@@ -76,6 +85,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let settings = NSMenuItem(title: "Settings".localized, action: #selector(toggleSettings), keyEquivalent: ",")
         settings.target = self
         appMenu.addItem(settings)
+        let repair = NSMenuItem(title: "Repair Software".localized, action: #selector(repairSoftware), keyEquivalent: "")
+        repair.target = self
+        appMenu.addItem(repair)
         appMenu.addItem(.separator())
         appMenu.addItem(withTitle: "Quit".localized, action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         appItem.submenu = appMenu
@@ -121,6 +133,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             let menu = NSMenu()
             menu.addItem(NSMenuItem(title: "History".localized, action: #selector(openHistory), keyEquivalent: ""))
             menu.addItem(NSMenuItem(title: "Settings".localized, action: #selector(openSettingsConfig), keyEquivalent: ""))
+            let repair = NSMenuItem(title: "Repair Software".localized, action: #selector(repairSoftware), keyEquivalent: "")
+            repair.target = self
+            menu.addItem(repair)
+            let issues = NSMenuItem(title: "GitHub Issues".localized, action: #selector(openIssues), keyEquivalent: "")
+            issues.target = self
+            menu.addItem(issues)
             menu.addItem(NSMenuItem.separator())
             menu.addItem(NSMenuItem(title: "Quit".localized, action: #selector(quitApp), keyEquivalent: ""))
             
@@ -144,6 +162,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     
     @objc private func quitApp() {
         NSApp.terminate(nil)
+    }
+
+    @MainActor @objc private func repairSoftware() {
+        SoftwareRepairManager.shared.presentRepair()
+    }
+
+    @MainActor @objc private func openIssues() {
+        NSWorkspace.shared.open(SoftwareRepairManager.issuesURL)
     }
     
     private func createFlowIcon() -> NSImage? {

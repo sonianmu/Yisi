@@ -377,71 +377,6 @@ struct ElegantSegmentedPicker: View {
     }
 }
 
-// MARK: - Reusable API Configuration Form
-
-private struct APIConfigForm: View {
-    @Binding var provider: String
-    @Binding var geminiKey: String
-    @Binding var geminiModel: String
-    @Binding var openaiKey: String
-    @Binding var openaiModel: String
-    @Binding var zhipuKey: String
-    @Binding var zhipuModel: String
-    var minimaxKey: Binding<String>? = nil
-    var minimaxModel: Binding<String>? = nil
-    var deepseekKey: Binding<String>? = nil
-    var deepseekModel: Binding<String>? = nil
-    var providerOptions: [String] = ["Gemini", "OpenAI", "Zhipu AI", "MiniMax", "DeepSeek", "Custom Service"]
-    var imageConfiguration = false
-
-    private var selectedModel: String {
-        switch APIProvider(rawValue: provider) {
-        case .gemini: return geminiModel
-        case .openai: return openaiModel
-        case .zhipu: return zhipuModel
-        case .minimax: return minimaxModel?.wrappedValue ?? ""
-        case .deepseek: return deepseekModel?.wrappedValue ?? ""
-        default: return ""
-        }
-    }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack {
-                Text("Provider".localized)
-                    .font(.system(size: 13, design: .serif))
-                    .foregroundColor(.secondary)
-                    .frame(width: 80, alignment: .leading)
-
-                CustomDropdown(selection: $provider, options: providerOptions, displayNames: providerOptions.map { $0.localized })
-            }
-
-            if provider == "Custom Service" {
-                CustomServiceForm(imageConfiguration: imageConfiguration)
-            } else if provider == "Gemini" {
-                APIKeyInput(label: "API Key".localized, text: $geminiKey, placeholder: "Gemini API Key")
-                APIKeyInput(label: "Model".localized, text: $geminiModel, placeholder: "gemini-2.5-flash", isSecure: false)
-            } else if provider == "OpenAI" {
-                APIKeyInput(label: "API Key".localized, text: $openaiKey, placeholder: "OpenAI API Key")
-                APIKeyInput(label: "Model".localized, text: $openaiModel, placeholder: "gpt-4o-mini", isSecure: false)
-            } else if provider == "Zhipu AI" {
-                APIKeyInput(label: "API Key".localized, text: $zhipuKey, placeholder: "Zhipu API Key")
-                APIKeyInput(label: "Model".localized, text: $zhipuModel, placeholder: "glm-4.5-air", isSecure: false)
-            } else if provider == "MiniMax", let minimaxKey = minimaxKey, let minimaxModel = minimaxModel {
-                APIKeyInput(label: "API Key".localized, text: minimaxKey, placeholder: "MiniMax API Key")
-                APIKeyInput(label: "Model".localized, text: minimaxModel, placeholder: "MiniMax-M2.5", isSecure: false)
-            } else if provider == "DeepSeek", let deepseekKey = deepseekKey, let deepseekModel = deepseekModel {
-                APIKeyInput(label: "API Key".localized, text: deepseekKey, placeholder: "DeepSeek API Key")
-                APIKeyInput(label: "Model".localized, text: deepseekModel, placeholder: "deepseek-chat", isSecure: false)
-            }
-            if let selectedProvider = APIProvider(rawValue: provider), selectedProvider != .custom {
-                ModelAdaptationForm(provider: selectedProvider, model: selectedModel, imageConfiguration: imageConfiguration)
-                    .id("\(provider).\(selectedModel).\(imageConfiguration)")
-            }
-        }
-    }
-}
-
 // MARK: - General Settings View
 
 struct GeneralSettingsView: View {
@@ -596,6 +531,8 @@ struct GeneralSettingsView: View {
                     .foregroundColor(.secondary.opacity(0.6))
                     .padding(.top, 4)
             }
+            Divider().opacity(0.3)
+            SoftwareRepairSection()
         }
     }
 }
@@ -603,141 +540,36 @@ struct GeneralSettingsView: View {
 // MARK: - AI Service Settings View
 
 struct AIServiceSettingsView: View {
-    // Text Mode API Settings (Default)
-    @AppStorage(AppDefaults.Keys.geminiApiKey) private var geminiKey: String = ""
-    @AppStorage(AppDefaults.Keys.openaiApiKey) private var openaiKey: String = ""
-    @AppStorage(AppDefaults.Keys.zhipuApiKey) private var zhipuKey: String = ""
-    @AppStorage(AppDefaults.Keys.minimaxApiKey) private var minimaxKey: String = ""
-    @AppStorage(AppDefaults.Keys.deepseekApiKey) private var deepseekKey: String = ""
-    @AppStorage(AppDefaults.Keys.geminiModel) private var geminiModel: String = AppDefaults.geminiModel
-    @AppStorage(AppDefaults.Keys.openaiModel) private var openaiModel: String = AppDefaults.openaiModel
-    @AppStorage(AppDefaults.Keys.zhipuModel) private var zhipuModel: String = AppDefaults.zhipuModel
-    @AppStorage(AppDefaults.Keys.minimaxModel) private var minimaxModel: String = AppDefaults.minimaxModel
-    @AppStorage(AppDefaults.Keys.deepseekModel) private var deepseekModel: String = AppDefaults.deepseekModel
-    @AppStorage(AppDefaults.Keys.apiProvider) private var apiProvider: String = AppDefaults.apiProvider
-    
-    // Image Mode API Settings
-    @AppStorage(AppDefaults.Keys.imageProcessingStrategy) private var imageStrategy: String = AppDefaults.imageProcessingStrategy
-    @AppStorage(AppDefaults.Keys.applyApiToImageMode) private var applyApiToImageMode: Bool = AppDefaults.applyApiToImageMode
-    @AppStorage(AppDefaults.Keys.imageApiProvider) private var imageApiProvider: String = AppDefaults.imageApiProvider
-    @AppStorage(AppDefaults.Keys.imageGeminiApiKey) private var imageGeminiKey: String = ""
-    @AppStorage(AppDefaults.Keys.imageGeminiModel) private var imageGeminiModel: String = AppDefaults.imageGeminiModel
-    @AppStorage(AppDefaults.Keys.imageOpenaiApiKey) private var imageOpenaiKey: String = ""
-    @AppStorage(AppDefaults.Keys.imageOpenaiModel) private var imageOpenaiModel: String = AppDefaults.imageOpenaiModel
-    @AppStorage(AppDefaults.Keys.imageZhipuApiKey) private var imageZhipuKey: String = ""
-    @AppStorage(AppDefaults.Keys.imageZhipuModel) private var imageZhipuModel: String = AppDefaults.imageZhipuModel
-    
-    @State private var modelSupportsImages = AIConfigurationStore.resolve().capabilities.supportsImages
+    @AppStorage(AppDefaults.Keys.imageProcessingStrategy) private var imageStrategy = AppDefaults.imageProcessingStrategy
+    @AppStorage(AppDefaults.Keys.applyApiToImageMode) private var sameAPI = AppDefaults.applyApiToImageMode
+    @State private var supportsImages = AIConfigurationStore.resolve().capabilities.supportsImages
 
-    // Feature Toggles
-    @AppStorage(AppDefaults.Keys.enableDeepThinking) private var enableDeepThinking: Bool = AppDefaults.enableDeepThinking
-    
     var body: some View {
         VStack(alignment: .leading, spacing: 24) {
-            // API Configuration (Text Mode - Default)
-            VStack(alignment: .leading, spacing: 12) {
-                // SectionHeader removed as per request
-                
-                APIConfigForm(
-                    provider: $apiProvider,
-                    geminiKey: $geminiKey,
-                    geminiModel: $geminiModel,
-                    openaiKey: $openaiKey,
-                    openaiModel: $openaiModel,
-                    zhipuKey: $zhipuKey,
-                    zhipuModel: $zhipuModel,
-                    minimaxKey: $minimaxKey,
-                    minimaxModel: $minimaxModel,
-                    deepseekKey: $deepseekKey,
-                    deepseekModel: $deepseekModel
-                )
-            }
-
+            AIServiceConfigurationForm()
             Divider().opacity(0.3)
-
-            // Image Mode Toggle
             VStack(alignment: .leading, spacing: 12) {
                 SectionHeader(title: "Image Mode".localized)
-
-                ElegantSegmentedPicker(
-                    selection: $imageStrategy,
-                    options: [("local_ocr", "System OCR".localized), ("ai_vision", "AI Vision".localized)]
-                )
-
+                ElegantSegmentedPicker(selection: $imageStrategy,
+                    options: [("local_ocr", "System OCR".localized), ("ai_vision", "AI Vision".localized)])
                 if imageStrategy == "local_ocr" {
                     Text("Only recognizes pure text structures in images".localized)
-                        .font(.system(size: 12, design: .serif))
-                        .foregroundColor(.secondary.opacity(0.7))
+                        .font(.system(size: 12)).foregroundColor(.secondary)
                 } else {
                     HStack {
-                        Text("Same API".localized)
-                            .font(.system(size: 13, design: .serif))
-                            .foregroundColor(.secondary)
-                            .frame(width: 80, alignment: .leading)
-
-                        let isImageUnsupported = !modelSupportsImages
-
-                        ElegantToggle(isOn: $applyApiToImageMode)
-                            .opacity(isImageUnsupported ? 0.4 : 1)
-                            .allowsHitTesting(!isImageUnsupported)
-
-                        Text(isImageUnsupported
-                             ? "This model is not configured for image input".localized
-                             : "Apply text settings to image mode".localized)
-                            .font(.system(size: 12, design: .serif))
-                            .foregroundColor(.secondary.opacity(0.7))
-
-                        Spacer()
+                        Text("Same API".localized).font(.system(size: 13, design: .serif))
+                            .foregroundColor(.secondary).frame(width: 80, alignment: .leading)
+                        ElegantToggle(isOn: $sameAPI).disabled(!supportsImages)
+                        Text(supportsImages ? "Apply text settings to image mode".localized : "This model is not configured for image input".localized)
+                            .font(.system(size: 11)).foregroundColor(.secondary)
                     }
-                    .onChange(of: apiProvider) { _, _ in
-                        if !AIConfigurationStore.resolve().capabilities.supportsImages {
-                            applyApiToImageMode = false
-                        }
-                    }
-
-                    // Separate Image API Configuration (shown when toggle is OFF)
-                    if !applyApiToImageMode {
-                        Divider().opacity(0.2)
-
-                        APIConfigForm(
-                            provider: $imageApiProvider,
-                            geminiKey: $imageGeminiKey,
-                            geminiModel: $imageGeminiModel,
-                            openaiKey: $imageOpenaiKey,
-                            openaiModel: $imageOpenaiModel,
-                            zhipuKey: $imageZhipuKey,
-                            zhipuModel: $imageZhipuModel,
-                            providerOptions: ["Gemini", "OpenAI", "Zhipu AI", "Custom Service"],
-                            imageConfiguration: true
-                        )
-                    }
-                }
-            }
-            
-            Divider().opacity(0.3)
-            
-            // Deep Thinking
-            VStack(alignment: .leading, spacing: 12) {
-                SectionHeader(title: "Advanced".localized)
-                
-                HStack {
-                    Text("Deep Thinking Preference".localized)
-                        .font(.system(size: 13, design: .serif))
-                        .foregroundColor(.secondary)
-                        .frame(width: 80, alignment: .leading)
-                    
-                    ElegantToggle(isOn: $enableDeepThinking)
-                    
-                    Text("Prefer deeper reasoning; behavior depends on model capabilities".localized)
-                        .font(.system(size: 12, design: .serif))
-                        .foregroundColor(.secondary.opacity(0.7))
-                    
-                    Spacer()
+                    if !sameAPI { AIServiceConfigurationForm(imageConfiguration: true) }
                 }
             }
         }
-        .onReceive(NotificationCenter.default.publisher(for: UserDefaults.didChangeNotification)) { _ in
-            modelSupportsImages = AIConfigurationStore.resolve().capabilities.supportsImages
+        .onReceive(NotificationCenter.default.publisher(for: UserDefaults.didChangeNotification).receive(on: RunLoop.main)) { _ in
+            supportsImages = AIConfigurationStore.resolve().capabilities.supportsImages
+            if !supportsImages && sameAPI { sameAPI = false }
         }
     }
 }
@@ -2526,4 +2358,3 @@ struct ShortcutRecorder: View {
         return string
     }
 }
-

@@ -37,13 +37,15 @@ class AIService: ObservableObject {
     
     // MARK: - Shared configuration
 
-    private func configuredService(usage: APIUsage) -> ResolvedAIService {
-        AIConfigurationStore.resolve(image: usage == .image)
+    private func configuredService(usage: APIUsage) throws -> ResolvedAIService {
+        let service = AIConfigurationStore.resolve(image: usage == .image)
+        try service.requireConfigured()
+        return service
     }
 
     /// Learning uses the same endpoint, model and capability configuration as text processing.
     func processAnalysis(_ prompt: String) async throws -> String {
-        let service = configuredService(usage: .text)
+        let service = try configuredService(usage: .text)
         let config = service.requestConfig(temperature: 0.3, maxTokens: 4096,
             deepThinking: UserDefaults.standard.bool(forKey: AppDefaults.Keys.enableDeepThinking))
         return try await executeWithRetry {
@@ -55,7 +57,7 @@ class AIService: ObservableObject {
     // MARK: - Text Processing
     
     func processText(_ text: String, mode: PromptMode = .defaultTranslation, sourceLanguage: String = "Auto Detect", targetLanguage: String = "简体中文", userPerception: String? = nil, userInstruction: String? = nil) async throws -> String {
-        let service = configuredService(usage: .text)
+        let service = try configuredService(usage: .text)
         let preprocessedText = preprocessInput(text)
         let deepThinking = UserDefaults.standard.bool(forKey: AppDefaults.Keys.enableDeepThinking)
         let enhanceReview = service.shouldEnhanceReview(mode: mode, deepThinking: deepThinking)
@@ -113,7 +115,7 @@ class AIService: ObservableObject {
                       sourceLanguage: String = "Auto Detect", targetLanguage: String = "简体中文",
                       userPerception: String? = nil, userInstruction: String? = nil) async throws -> String {
         // Resolve once so the prompt and transport use the same capability snapshot.
-        let service = configuredService(usage: .image)
+        let service = try configuredService(usage: .image)
         guard let imageData = imageToData(image) else {
             throw AIServiceError.configuration("Failed to encode image.")
         }
