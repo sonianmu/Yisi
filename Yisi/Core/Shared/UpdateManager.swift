@@ -301,6 +301,17 @@ class UpdateManager: ObservableObject {
                 return
             }
 
+            // Only replace Yisi with a valid application bearing the same bundle ID.
+            let stagedBundle = Bundle(path: stagingPath)
+            guard stagedBundle?.bundleIdentifier == Bundle.main.bundleIdentifier,
+                  stagedBundle?.infoDictionary?["CFBundleExecutable"] as? String == "Yisi",
+                  PermissionReset.run(executable: "/usr/bin/codesign", arguments: ["--verify", "--deep", "--strict", stagingPath]) else {
+                self?.detach(mountPoint)
+                self?.cleanup([dmgPath, stagingPath])
+                DispatchQueue.main.async { self?.showError(fallbackURL: htmlURL) }
+                return
+            }
+
             // Unmount
             self?.detach(mountPoint)
 
@@ -316,12 +327,15 @@ class UpdateManager: ObservableObject {
                 self?.progressStatus = "Restarting...".localized
 
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                    let script = "sleep 1 && rm -rf '\(appPath)' && mv '\(stagingPath)' '\(appPath)' && open '\(appPath)' && rm -f '\(dmgPath)'"
                     let task = Process()
                     task.executableURL = URL(fileURLWithPath: "/bin/sh")
-                    task.arguments = ["-c", script]
-                    try? task.run()
-                    NSApp.terminate(nil)
+                    task.arguments = UpdateReplacement.arguments(appPath: appPath, stagingPath: stagingPath, dmgPath: dmgPath)
+                    do {
+                        try task.run()
+                        NSApp.terminate(nil)
+                    } catch {
+                        self?.showError(fallbackURL: htmlURL)
+                    }
                 }
             }
         }

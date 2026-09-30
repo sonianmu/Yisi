@@ -309,7 +309,12 @@ struct WelcomeView: View {
                 .padding(.bottom, 36)
         }
         .padding(.horizontal, 40)
-        .onAppear { UserDefaults.standard.set(true, forKey: AppDefaults.Keys.welcomeCompleted) }
+        .onAppear {
+            if tracksProgress {
+                PermissionMigration.completeAuthorization(defaults: .standard)
+                UserDefaults.standard.set(true, forKey: AppDefaults.Keys.welcomeCompleted)
+            }
+        }
     }
 
     // MARK: - Helpers

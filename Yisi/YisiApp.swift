@@ -21,14 +21,16 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var statusItem: NSStatusItem?
     var settingsWindow: NSWindow?
     var welcomeWindow: NSWindow?
+    private var checkingUpdatePermissions = true
+    private var previouslyLaunched = false
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        previouslyLaunched = UserDefaults.standard.bool(forKey: AppDefaults.Keys.hasLaunchedBefore)
         AppDefaults.registerDefaults()
         NSApp.setActivationPolicy(.accessory)
 
         setupMainMenu()
         setupMenuBar()
-        setupShortcutHandler()
 
         if !UserDefaults.standard.bool(forKey: AppDefaults.Keys.hasLaunchedBefore) {
             UserDefaults.standard.set(true, forKey: AppDefaults.Keys.hasLaunchedBefore)
@@ -42,6 +44,70 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             object: nil
         )
 
+        migrateUpdatePermissions()
+    }
+
+    private func migrateUpdatePermissions() {
+        let defaults = UserDefaults.standard
+        guard let identity = PermissionMigration.runningIdentity() else {
+            finishLaunching()
+            return
+        }
+        let existing = previouslyLaunched || defaults.bool(forKey: AppDefaults.Keys.welcomeCompleted)
+            || defaults.integer(forKey: AppDefaults.Keys.welcomeStep) >= 2
+        let plan = PermissionMigration.plan(identity: identity, existingUser: existing,
+            accessibility: AXIsProcessTrusted(), screenCapture: CGPreflightScreenCaptureAccess(), defaults: defaults)
+        do {
+            try PermissionMigration.checkpoint(plan, defaults: defaults, persist: { defaults.synchronize() })
+        } catch {
+            NSLog("Yisi update permission checkpoint failed; no permissions reset")
+            let alert = NSAlert()
+            alert.messageText = "System authorization still required".localized
+            alert.informativeText = "The update permission state could not be saved. No permissions or user data were reset. Please restart Yisi; if the problem persists, report it on GitHub Issues.".localized
+            alert.runModal()
+            finishLaunching()
+            return
+        }
+        guard !plan.services.isEmpty else { finishLaunching(); return }
+        let path = Bundle.main.bundlePath
+        Task { @MainActor in
+            let failures = await Task.detached(priority: .userInitiated) {
+                PermissionReset.perform(services: plan.services, bundleID: "com.sonianmu.yisi", appPath: path)
+            }.value
+            PermissionMigration.finish(plan, failures: failures, defaults: defaults)
+            NSLog("Yisi update permission migration: attempted=%@ failed=%@", plan.services.joined(separator: ","), failures.joined(separator: ","))
+            if !failures.isEmpty {
+                let alert = NSAlert()
+                alert.messageText = "System authorization still required".localized
+                alert.informativeText = "Some permissions could not be refreshed automatically. Follow the system authorization prompts. If Yisi still cannot be authorized, please report the problem on GitHub Issues. Your API keys and history are preserved.".localized
+                alert.addButton(withTitle: "OK".localized)
+                alert.addButton(withTitle: "GitHub Issues".localized)
+                if alert.runModal() == .alertSecondButtonReturn { NSWorkspace.shared.open(SoftwareRepairManager.issuesURL) }
+            }
+            // Resetting permissions can leave cached preflight results in this process.
+            // Restart once; the durable checkpoint prevents another reset next time.
+            if failures.count < plan.services.count {
+                let task = Process()
+                task.executableURL = URL(fileURLWithPath: "/bin/sh")
+                task.arguments = ["-c", "sleep 0.5; exec /usr/bin/open -n \"$1\"", "yisi-permission-migration", path]
+                do {
+                    try task.run()
+                    NSApp.terminate(nil)
+                    return
+                } catch {
+                    let alert = NSAlert()
+                    alert.messageText = "System authorization still required".localized
+                    alert.informativeText = "Please quit and reopen Yisi to finish updating permissions. Your API keys and history are preserved.".localized
+                    alert.runModal()
+                }
+            }
+            finishLaunching()
+        }
+    }
+
+    private func finishLaunching() {
+        checkingUpdatePermissions = false
+        setupShortcutHandler()
         let completed = UserDefaults.standard.bool(forKey: AppDefaults.Keys.welcomeCompleted)
         let savedStep = UserDefaults.standard.integer(forKey: AppDefaults.Keys.welcomeStep)
         let accessibilityGranted = AXIsProcessTrusted()
@@ -49,13 +115,16 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         NSLog("Yisi startup: path=%@ step=%ld accessibility=%d screenCapture=%d completed=%d",
               Bundle.main.bundlePath, savedStep, accessibilityGranted ? 1 : 0,
               screenCaptureGranted ? 1 : 0, completed ? 1 : 0)
+        let migrating = UserDefaults.standard.bool(forKey: PermissionMigration.pendingKey)
         let repaired = UserDefaults.standard.bool(forKey: AppDefaults.Keys.repairPending)
-        if repaired {
+        if repaired || migrating {
             UserDefaults.standard.removeObject(forKey: AppDefaults.Keys.repairPending)
             if accessibilityGranted && screenCaptureGranted {
+                PermissionMigration.completeAuthorization(defaults: .standard)
                 UserDefaults.standard.set(true, forKey: AppDefaults.Keys.welcomeCompleted)
                 toggleSettings()
             } else {
+                UserDefaults.standard.set(2, forKey: AppDefaults.Keys.welcomeStep)
                 showWelcome()
             }
         } else if !completed {
@@ -165,6 +234,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @MainActor @objc private func repairSoftware() {
+        guard !checkingUpdatePermissions else { return }
         SoftwareRepairManager.shared.presentRepair()
     }
 
@@ -265,7 +335,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
     
     @objc func toggleSettings() {
-        if !UserDefaults.standard.bool(forKey: AppDefaults.Keys.welcomeCompleted) {
+        guard !checkingUpdatePermissions else { return }
+        if UserDefaults.standard.bool(forKey: PermissionMigration.pendingKey) || !UserDefaults.standard.bool(forKey: AppDefaults.Keys.welcomeCompleted) {
             if let window = welcomeWindow {
                 window.makeKeyAndOrderFront(nil)
                 NSApp.activate(ignoringOtherApps: true)
@@ -309,6 +380,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
     
     @objc private func showWelcomeFromAbout() {
+        guard !checkingUpdatePermissions else { return }
         if welcomeWindow != nil { return }
         showWelcome(isReentry: true)
     }

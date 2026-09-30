@@ -201,6 +201,12 @@ First launch shows onboarding before Settings. The screen recording step request
 
 Models are entered by the user rather than tied to a fixed model list. Availability and supported features depend on your provider, account, model, and protocol. The thinking toggle uses the model's configured reasoning adapter; expand Advanced Adaptation when necessary. New custom API keys are stored in Keychain. See [model service configuration](docs/model-services.md) (Chinese).
 
+## Updates and Permissions
+
+On the first launch after an update, Yisi checks the version and signing identity. An ad-hoc signature change, including the initial migration from an older version, automatically refreshes Yisi's Accessibility and Screen Recording permission entries and resumes at the required authorization step. Users do not need to click Software Repair first. API keys, service settings, and history are retained; recorded attempts prevent repeated resets on ordinary restarts.
+
+macOS may still require users to confirm permission. Migration cannot grant authorization silently. Valid permissions are retained when a stable signing identity remains unchanged. Automatic processing failures are reported with a GitHub Issues option.
+
 ## Software Repair
 
 If Yisi stops working, choose **Software Repair** in **Settings > General** or the menu bar icon's context menu. Repair preserves API keys, service settings, translation history, history images, presets, and learned rules. It backs up caches and the preferences it resets, restores appearance, shortcuts, and window placement, and attempts to reset failed Accessibility or Screen Recording permissions before restarting. macOS may still require you to grant permission.
