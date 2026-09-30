@@ -1,10 +1,12 @@
 #!/bin/bash
-set -e
+set -euo pipefail
+
+cd "$(dirname "$0")/.."
 
 APP_NAME="Yisi"
 BUNDLE_ID="com.sonianmu.yisi"
 # Auto-detect version from latest git tag (strips leading "v")
-if [ -z "${VERSION}" ]; then
+if [ -z "${VERSION:-}" ]; then
     GIT_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
     VERSION="${GIT_TAG#v}"
 fi
@@ -13,7 +15,7 @@ if [ -z "${VERSION}" ]; then
     exit 1
 fi
 echo "Building ${APP_NAME} v${VERSION}"
-BUILD_DIR=".build_app"
+BUILD_DIR="build-app/Release"
 APP_BUNDLE="${BUILD_DIR}/${APP_NAME}.app"
 
 # Clean previous build artifacts
@@ -51,18 +53,23 @@ echo "App icon generated successfully."
 # Build Universal Binary (arm64 + x86_64)
 echo "Building arm64..."
 swift build -c release --arch arm64
-ARM64_BIN="$(swift build -c release --arch arm64 --show-bin-path)/${APP_NAME}"
+ARM64_BIN="${BUILD_DIR}/${APP_NAME}-arm64"
+# Some SwiftPM build systems reuse the same product directory for both architectures.
+cp "$(swift build -c release --arch arm64 --show-bin-path)/${APP_NAME}" "${ARM64_BIN}"
 
 echo "Building x86_64..."
 swift build -c release --arch x86_64
-X86_BIN="$(swift build -c release --arch x86_64 --show-bin-path)/${APP_NAME}"
+X86_BIN="${BUILD_DIR}/${APP_NAME}-x86_64"
+cp "$(swift build -c release --arch x86_64 --show-bin-path)/${APP_NAME}" "${X86_BIN}"
 
 echo "Creating Universal Binary..."
 lipo -create -output "${APP_BUNDLE}/Contents/MacOS/${APP_NAME}" "${ARM64_BIN}" "${X86_BIN}"
+lipo "${APP_BUNDLE}/Contents/MacOS/${APP_NAME}" -verify_arch arm64
+lipo "${APP_BUNDLE}/Contents/MacOS/${APP_NAME}" -verify_arch x86_64
 chmod +x "${APP_BUNDLE}/Contents/MacOS/${APP_NAME}"
 
 # Ad-hoc code sign the universal binary
-# Required for macOS to persist accessibility/keyboard permissions across launches
+# Ad-hoc signatures are not stable across builds; macOS may require renewed authorization.
 codesign --force -s - "${APP_BUNDLE}/Contents/MacOS/${APP_NAME}"
 
 # Generate Info.plist
@@ -86,6 +93,8 @@ cat > "${APP_BUNDLE}/Contents/Info.plist" <<PLIST
     <string>${VERSION}</string>
     <key>CFBundleVersion</key>
     <string>${VERSION}</string>
+    <key>LSMinimumSystemVersion</key>
+    <string>14.0</string>
     <key>LSUIElement</key>
     <true/>
     <key>CFBundleIconFile</key>
@@ -178,7 +187,9 @@ mkdir -p "${DMG_STAGE}/.background"
 
 # Sign the complete app bundle (after all resources are in place)
 codesign --force --deep -s - "${APP_BUNDLE}"
-echo "App bundle signed (ad-hoc)."
+plutil -lint "${APP_BUNDLE}/Contents/Info.plist"
+codesign --verify --deep --strict "${APP_BUNDLE}"
+echo "App bundle signed and verified (ad-hoc)."
 
 cp -R "${APP_BUNDLE}" "${DMG_STAGE}/"
 ln -s /Applications "${DMG_STAGE}/Applications"

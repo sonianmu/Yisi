@@ -5,8 +5,8 @@
   <p>English | <a href="./README.zh-CN.md">简体中文</a></p>
 </div>
 
-[![GitHub release](https://img.shields.io/github/v/release/MUTRO888/Yisi)](https://github.com/MUTRO888/Yisi/releases)
-[![Platform](https://img.shields.io/badge/platform-macOS%2014%2B-lightgrey)](https://github.com/MUTRO888/Yisi/releases)
+[![GitHub release](https://img.shields.io/github/v/release/sonianmu/Yisi)](https://github.com/sonianmu/Yisi/releases)
+[![Platform](https://img.shields.io/badge/platform-macOS%2014%2B-lightgrey)](https://github.com/sonianmu/Yisi/releases)
 [![License](https://img.shields.io/badge/license-GPL--3.0-blue)](LICENSE)
 
 ---
@@ -25,7 +25,7 @@
 - **Preset Mode** -- Pre-define input perception and output instructions once, valid forever. Select to trigger, trigger to complete, zero extra steps
 - **Custom Mode** -- For one-off needs without pre-configuration. Fill in "What is this" and "What to do" at the moment of triggering
 - **Screenshot Recognition** -- Capture any screen region via shortcut and send the image directly to AI for analysis. Design mockups, error dialogs, data charts all supported
-- **Multiple AI Providers** -- Supports Gemini, OpenAI, Zhipu AI, DeepSeek, and MiniMax. Text and vision models can be configured independently
+- **Configurable AI Services** -- Built-in Gemini, OpenAI, Zhipu AI, DeepSeek, and MiniMax connection templates, plus custom OpenAI-compatible Chat Completions, Gemini native, and Anthropic Messages endpoints. Enter the model ID you want to use; text and vision services can be configured independently
 - **Translation History** -- All conversion results persist locally for future reference
 - **Menu Bar Resident** -- Lives in the macOS menu bar without occupying a Dock slot
 - **Dark / Light Theme** -- Follows system appearance or manual toggle
@@ -61,7 +61,7 @@ AI is not a conversational partner you visit. It's a silent link in your workflo
 
 ### Installation
 
-Download the latest `.dmg` from the [Releases](https://github.com/MUTRO888/Yisi/releases) page and drag it into the Applications folder.
+Download the latest `.dmg` from the [Releases](https://github.com/sonianmu/Yisi/releases) page and drag it into the Applications folder.
 
 ### Three Steps to Convert
 
@@ -73,19 +73,19 @@ Shortcuts are customizable in Settings > General.
 
 ### Five-Minute Setup
 
-Yisi supports five AI providers. We recommend starting with Zhipu AI -- new users receive free tokens upon registration.
+1. Obtain an API key and a model ID from your provider.
+2. Open **Settings > AI Services**, select a provider, and enter both fields. Model IDs are initially blank; existing saved models are retained.
+3. For another endpoint, choose **Custom Service** and enter its protocol and base URL. Expand **Advanced Adaptation** only if the model needs specific reasoning or request settings.
+4. Click **Test and Save**. A successful response saves the configuration and selects AI Translation. A failed test shows the error and keeps the previous configuration.
+5. For screenshots, choose system OCR or configure an AI vision service in the same way. Reusing the text service requires an image-capable model.
 
-1. Go to [Zhipu AI Platform](https://open.bigmodel.cn) to register and get an API Key
-2. Open Yisi > Settings > AI Services
-3. Select Zhipu AI as the provider and paste the API Key
-4. Models are pre-configured out of the box
-5. Done. Ready to use
+AI Translation is the default for new configurations. To use macOS translation instead, select **System Translation** in **Settings > Translation**. Without a saved AI key and model, Yisi prompts you to configure the service or switch engines. Existing users' engine selections are retained until a successful service save.
 
 ---
 
 ## Installation Troubleshooting
 
-Yisi is not yet code-signed, so macOS will show security warnings on first launch.
+Yisi uses ad-hoc signing and is not notarized by Apple, so macOS may show security warnings on first launch.
 
 **Option 1 -- Right-click to Open**
 
@@ -165,7 +165,7 @@ Yisi/
 
 ```bash
 # Clone the repository
-git clone https://github.com/MUTRO888/Yisi.git
+git clone https://github.com/sonianmu/Yisi.git
 cd Yisi
 
 # Open the Swift package in Xcode
@@ -174,27 +174,40 @@ xed .
 swift build -c release
 ```
 
+To create a universal installer for Apple Silicon and Intel:
+
+```bash
+VERSION=1.3.0 ./scripts/build_dmg.sh
+```
+
+The script outputs `Yisi.dmg` and `build-app/Release/Yisi.app`. It does not publish a GitHub release or change user data.
+
 For local development, use `./scripts/fresh-start.sh --close`, `--start`, or `--new`. Closing and starting preserve data; `--new` builds and registers the app, resets Yisi's permissions, then clears preferences, history, history images, learned rules, and API keys before launching. If macOS cannot yet resolve the bundle ID on first use, permission reset is skipped with a warning; other permission errors stop before data is cleared. Add `--keep-keys --keep-permissions` to retain credentials and permissions, or `--dry-run` to preview operations. The development app is built at `build-app/Debug/Yisi.app`; logs are saved in `~/Library/Logs/Yisi/`. Automatic update checks are disabled for the development session without changing saved preferences.
 
 First launch shows onboarding before Settings. The screen recording step requests system authorization and offers “Show App in Finder” so you can select the exact `Yisi.app` with the permission page's `+` button if needed. The app restarts when authorization is detected. Development builds use ad-hoc signing, so rebuilding may require authorization again.
 
 ---
 
-## Supported AI Providers
+## Supported AI Services
 
-| Provider | Text Model | Vision Model | Notes |
-|----------|-----------|-------------|-------|
-| **Gemini** | Gemini Pro etc. | Gemini Pro Vision | Google AI |
-| **OpenAI** | GPT-4o etc. | GPT-4o | Any OpenAI-compatible service |
-| **Zhipu AI** | GLM-4 etc. | GLM-4V | Recommended for Chinese users, free tokens for new users |
-| **DeepSeek** | DeepSeek Chat | -- | Cost-effective |
-| **MiniMax** | MiniMax Chat | -- | Chinese LLM |
+| Connection template | Text | Vision |
+|---------------------|------|--------|
+| Gemini | Yes | With an image-capable model |
+| OpenAI | Yes | With an image-capable model |
+| Zhipu AI | Yes | With an image-capable model |
+| DeepSeek | Yes | Not offered as a built-in vision template |
+| MiniMax | Yes | Not offered as a built-in vision template |
+| Custom Service | Yes | With an image-capable model and endpoint |
 
-Text and vision models can be configured independently for the optimal combination.
+Models are entered by the user rather than tied to a fixed model list. Availability and supported features depend on your provider, account, model, and protocol. The thinking toggle uses the model's configured reasoning adapter; expand Advanced Adaptation when necessary. New custom API keys are stored in Keychain. See [model service configuration](docs/model-services.md) (Chinese).
+
+## Software Repair
+
+If Yisi stops working, choose **Software Repair** in **Settings > General** or the menu bar icon's context menu. Repair preserves API keys, service settings, translation history, history images, presets, and learned rules. It backs up caches and the preferences it resets, restores appearance, shortcuts, and window placement, and attempts to reset failed Accessibility or Screen Recording permissions before restarting. macOS may still require you to grant permission.
+
+The confirmation explains that some temporary data or personalization may be lost. Backups are stored in `~/Library/Application Support/com.sonianmu.yisi/RepairBackups/`. If repair does not help, report the problem through [GitHub Issues](https://github.com/sonianmu/Yisi/issues).
 
 ---
-
-Custom model endpoints support OpenAI-compatible Chat Completions, Gemini native, and Anthropic Messages protocols. Configure a base URL, model ID, and per-model capabilities in Settings → AI Service → Custom Service. New custom API keys are stored in Keychain. See [model service configuration](docs/model-services.md) (Chinese) for details.
 
 ## Contributing
 

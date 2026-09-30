@@ -5,8 +5,8 @@
   <p><a href="./README.md">English</a> | 简体中文</p>
 </div>
 
-[![GitHub release](https://img.shields.io/github/v/release/MUTRO888/Yisi)](https://github.com/MUTRO888/Yisi/releases)
-[![Platform](https://img.shields.io/badge/platform-macOS%2014%2B-lightgrey)](https://github.com/MUTRO888/Yisi/releases)
+[![GitHub release](https://img.shields.io/github/v/release/sonianmu/Yisi)](https://github.com/sonianmu/Yisi/releases)
+[![Platform](https://img.shields.io/badge/platform-macOS%2014%2B-lightgrey)](https://github.com/sonianmu/Yisi/releases)
 [![License](https://img.shields.io/badge/license-GPL--3.0-blue)](LICENSE)
 
 ---
@@ -61,7 +61,7 @@ AI 不是你去拜访的对话伙伴，而是安静藏在你操作流里的一�
 
 ### 安装
 
-从 [Releases](https://github.com/MUTRO888/Yisi/releases) 页面下载最新的 `.dmg` 文件，拖入应用程序文件夹即可。
+从 [Releases](https://github.com/sonianmu/Yisi/releases) 页面下载最新的 `.dmg` 文件，拖入应用程序文件夹即可。
 
 ### 三步完成一次转换
 
@@ -73,19 +73,19 @@ AI 不是你去拜访的对话伙伴，而是安静藏在你操作流里的一�
 
 ### 五分钟完成配置
 
-Yisi 支持五家 AI 提供商。推荐从智谱 AI 开始 -- 新用户注册即送 Token，足够长期使用。
+1. 从提供商获取 API Key 和可用的模型 ID。
+2. 打开 **设置 > AI 服务**，选择提供商，填写 API Key 和模型。新配置的模型默认留空，已有用户保存的模型会保留。
+3. 使用其他服务时，选择 **自定义服务**，填写协议和 API 地址。模型需要特殊推理参数时，再展开 **高级适配** 调整。
+4. 点击 **测试并保存**。成功后保存配置并切换为 AI 翻译；失败时显示具体错误，保留之前的配置。
+5. 截图可选择系统 OCR，或按相同流程配置 AI 视觉服务。复用文本服务时，需要使用支持图片输入的模型。
 
-1. 前往 [智谱 AI 开放平台](https://open.bigmodel.cn) 注册并获取 API Key
-2. 打开 Yisi > Settings > AI 服务
-3. 提供商选择 Zhipu AI，粘贴 API Key
-4. 模型已预设，开箱即用
-5. 完成，开始使用
+新配置默认使用 AI 翻译；需要系统翻译时，在 **设置 > 翻译** 中手动切换引擎。未保存 API Key 和模型时，会提示配置 AI 服务或切换为系统翻译。老用户原有引擎选择会保留，直到成功保存 AI 服务。
 
 ---
 
 ## 安装问题排查
 
-Yisi 尚未进行代码签名，macOS 首次打开时会显示安全警告。
+Yisi 使用临时签名，尚未经 Apple 公证，macOS 首次打开时可能显示安全警告。
 
 **方案一 -- 右键打开**
 
@@ -165,7 +165,7 @@ Yisi/
 
 ```bash
 # 克隆仓库
-git clone https://github.com/MUTRO888/Yisi.git
+git clone https://github.com/sonianmu/Yisi.git
 cd Yisi
 
 # 在 Xcode 中打开 Swift Package
@@ -173,6 +173,14 @@ xed .
 # 或使用命令行
 swift build -c release
 ```
+
+生成同时支持 Apple Silicon 与 Intel 的安装包：
+
+```bash
+VERSION=1.3.0 ./scripts/build_dmg.sh
+```
+
+输出为 `Yisi.dmg` 和 `build-app/Release/Yisi.app`。脚本不会发布 GitHub Release，也不会清除用户数据。
 
 本机开发可使用三档启动脚本（无参数时显示帮助）：
 
@@ -191,21 +199,26 @@ cd ~/Desktop/Yisi
 
 首次启动会显示欢迎引导，完成后才打开设置。录屏步骤点击“启用”会请求系统授权；若系统权限列表中未显示 Yisi，可点击“在 Finder 中显示 App”，然后在系统设置的录屏权限页面通过 `+` 选择这个 `Yisi.app`。授权生效后 App 会重新启动。开发版使用临时签名，重新构建后系统可能要求再次授权。
 
-应用出现异常时，可在“设置 → 通用”或菜单栏图标的右键菜单中选择“软件修复”。修复保留 API 密钥、服务配置、翻译历史、历史截图、预设和学习规则，只恢复外观、快捷键及窗口位置，并备份缓存和尝试恢复失效授权。确认页会提示可能丢失部分临时数据或个性化设置。备份位于 `~/Library/Application Support/com.sonianmu.yisi/RepairBackups/`。若仍无法使用，请通过 [GitHub Issues](https://github.com/MUTRO888/Yisi/issues) 反馈，勿提交密钥或私人翻译内容。
 
 ---
 
-## 支持的 AI 提供商
+## 支持的 AI 服务
 
-| 提供商 | 文本模型 | 视觉模型 | 说明 |
-|--------|---------|---------|------|
-| **Gemini** | Gemini Pro 等 | Gemini Pro Vision | Google AI |
-| **OpenAI** | GPT-4o 等 | GPT-4o | 兼容 OpenAI 格式的任意服务 |
-| **智谱 AI** | GLM-4 等 | GLM-4V | 推荐国内用户，新用户有免费额度 |
-| **DeepSeek** | DeepSeek Chat | -- | 高性价比 |
-| **MiniMax** | MiniMax Chat | -- | 国产大模型 |
+| 连接模板 | 文本 | 视觉 |
+|----------|------|------|
+| Gemini | 支持 | 使用支持图片输入的模型 |
+| OpenAI | 支持 | 使用支持图片输入的模型 |
+| 智谱 AI | 支持 | 使用支持图片输入的模型 |
+| DeepSeek | 支持 | 不提供内置视觉连接模板 |
+| MiniMax | 支持 | 不提供内置视觉连接模板 |
+| 自定义服务 | 支持 | 使用支持图片输入的模型与服务 |
 
-文本模型和视觉模型可分别独立配置，按需选择最适合的组合。自定义地址、推理控制和模型能力的配置方法见 [通用模型服务配置](docs/model-services.md)。
+模型由用户填写，不绑定固定列表。能否调用及支持哪些功能，取决于提供商、账号、模型和协议。思考开关使用模型对应的推理适配，需要时可在高级适配中修改。自定义服务的新 API 密钥存入 Keychain。具体配置方法见 [通用模型服务配置](docs/model-services.md)。
+
+## 软件修复
+
+应用出现异常时，可在“设置 → 通用”或菜单栏图标的右键菜单中选择“软件修复”。修复保留 API 密钥、服务配置、翻译历史、历史截图、预设和学习规则，只恢复外观、快捷键及窗口位置，并备份缓存和尝试恢复失效授权。确认页会提示可能丢失部分临时数据或个性化设置。备份位于 `~/Library/Application Support/com.sonianmu.yisi/RepairBackups/`。若仍无法使用，请通过 [GitHub Issues](https://github.com/sonianmu/Yisi/issues) 反馈。
+
 
 ---
 
