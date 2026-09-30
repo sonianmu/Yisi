@@ -25,7 +25,7 @@
 - **Preset Mode（预设模式）** -- 预定义输入感知和输出指令，配置一次永久生效。选中即触发，触发即完成，零额外操作
 - **Custom Mode（即时模式）** -- 一次性需求无需提前配置。触发时填写"这是什么"和"请做什么"，当场处理
 - **截图识别** -- 快捷键框选屏幕区域，图片直接送入 AI 分析。设计稿、报错截图、数据图表均可处理
-- **多 AI 提供商** -- 支持 Gemini、OpenAI、智谱 AI、DeepSeek、MiniMax，文本和视觉模型可分别配置
+- **多 AI 提供商** -- 支持 Gemini、OpenAI、智谱 AI、DeepSeek、MiniMax，并支持自定义 OpenAI 兼容、Gemini 原生及 Anthropic Messages 服务；文本和视觉模型可分别配置
 - **翻译历史** -- 所有转换结果本地持久化，随时回溯查阅
 - **菜单栏常驻** -- 不占 Dock 位，常驻 macOS 菜单栏，随时可用
 - **深色/浅色主题** -- 跟随系统或手动切换
@@ -174,6 +174,23 @@ xed .
 swift build -c release
 ```
 
+本机开发可使用三档启动脚本（无参数时显示帮助）：
+
+```bash
+cd ~/Desktop/Yisi
+./scripts/fresh-start.sh --close   # 关闭，不清除数据
+./scripts/fresh-start.sh --start   # 构建并启动，已运行时跳过
+./scripts/fresh-start.sh --new     # 清空状态后重新启动
+```
+
+`--new` 会先构建并向 macOS 登记 App、重置 Yisi 的系统授权，再删除配置、密钥、预设、历史、历史截图和学习规则，最后启动。首次运行若系统尚未识别 Bundle ID，会提示并跳过授权重置；其他授权错误会在清理数据前停止。可加 `--keep-keys --keep-permissions` 保留旧版及 Keychain 密钥和系统授权；模型和服务地址仍恢复默认值。任何模式都可加 `--dry-run` 仅预览操作。构建失败不会清理数据。
+
+开发 App 位于 `build-app/Debug/Yisi.app`，日志位于 `~/Library/Logs/Yisi/`。脚本启动的开发会话暂停自动更新检查，不修改保存的更新偏好。需要加载新代码时，先 `--close` 再 `--start`。
+
+首次迁移会注销旧 `.build_app/Debug/Yisi.app` 的应用登记，并将其保留为 `.build_app/retired.*/Yisi.app.disabled`，避免系统重启时选中旧副本。启动检查会核对实际可执行文件路径；配置和历史不受此迁移影响。
+
+首次启动会显示欢迎引导，完成后才打开设置。录屏步骤点击“启用”会请求系统授权；若系统权限列表中未显示 Yisi，可点击“在 Finder 中显示 App”，然后在系统设置的录屏权限页面通过 `+` 选择这个 `Yisi.app`。授权生效后 App 会重新启动。开发版使用临时签名，重新构建后系统可能要求再次授权。
+
 ---
 
 ## 支持的 AI 提供商
@@ -186,7 +203,7 @@ swift build -c release
 | **DeepSeek** | DeepSeek Chat | -- | 高性价比 |
 | **MiniMax** | MiniMax Chat | -- | 国产大模型 |
 
-文本模型和视觉模型可分别独立配置，按需选择最适合的组合。
+文本模型和视觉模型可分别独立配置，按需选择最适合的组合。自定义地址、推理控制和模型能力的配置方法见 [通用模型服务配置](docs/model-services.md)。
 
 ---
 

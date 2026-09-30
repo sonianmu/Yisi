@@ -174,6 +174,10 @@ xed .
 swift build -c release
 ```
 
+For local development, use `./scripts/fresh-start.sh --close`, `--start`, or `--new`. Closing and starting preserve data; `--new` builds and registers the app, resets Yisi's permissions, then clears preferences, history, history images, learned rules, and API keys before launching. If macOS cannot yet resolve the bundle ID on first use, permission reset is skipped with a warning; other permission errors stop before data is cleared. Add `--keep-keys --keep-permissions` to retain credentials and permissions, or `--dry-run` to preview operations. The development app is built at `build-app/Debug/Yisi.app`; logs are saved in `~/Library/Logs/Yisi/`. Automatic update checks are disabled for the development session without changing saved preferences.
+
+First launch shows onboarding before Settings. The screen recording step requests system authorization and offers “Show App in Finder” so you can select the exact `Yisi.app` with the permission page's `+` button if needed. The app restarts when authorization is detected. Development builds use ad-hoc signing, so rebuilding may require authorization again.
+
 ---
 
 ## Supported AI Providers
@@ -189,6 +193,8 @@ swift build -c release
 Text and vision models can be configured independently for the optimal combination.
 
 ---
+
+Custom model endpoints support OpenAI-compatible Chat Completions, Gemini native, and Anthropic Messages protocols. Configure a base URL, model ID, and per-model capabilities in Settings → AI Service → Custom Service. New custom API keys are stored in Keychain. See [model service configuration](docs/model-services.md) (Chinese) for details.
 
 ## Contributing
 

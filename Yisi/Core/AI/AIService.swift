@@ -7,6 +7,7 @@ enum APIProvider: String {
     case zhipu = "Zhipu AI"
     case minimax = "MiniMax"
     case deepseek = "DeepSeek"
+    case custom = "Custom Service"
 }
 
 class AIService: ObservableObject {
@@ -29,82 +30,37 @@ class AIService: ObservableObject {
             return MiniMaxProvider()
         case .deepseek:
             return DeepSeekProvider()
+        case .custom:
+            return CustomProvider()
         }
     }
     
-    // MARK: - Public Helpers
-    
-    /// 判断是否应该在 Prompt 中启用 CoT（thinking_process 字段）
-    /// 供 TranslationView 在生成图片提示词时使用
-    /// - Parameters:
-    ///   - mode: 提示词模式
-    ///   - usage: API 使用场景（文本/图片）
-    /// - Returns: 是否应该启用 promptCoT
-    func shouldEnableCoT(for mode: PromptMode, usage: APIUsage = .image) -> Bool {
-        // 只有翻译模式才考虑 promptCoT
-        guard mode == .defaultTranslation else { return false }
-        
-        let enableDeepThinking = UserDefaults.standard.bool(forKey: "enable_deep_thinking")
-        guard enableDeepThinking else { return false }
-        
-        // 检查当前模型是否为推理模型
-        let provider = getProvider(for: usage)
-        let model = getModel(for: provider, usage: usage)
-        let providerInstance = getProviderInstance(for: provider)
-        let isReasoning = providerInstance.isReasoningModel(model)
-        
-        // 非推理模型 + 开关开启 = 需要 promptCoT
-        return !isReasoning
+    // MARK: - Shared configuration
+
+    private func configuredService(usage: APIUsage) -> ResolvedAIService {
+        AIConfigurationStore.resolve(image: usage == .image)
     }
-    
+
+    /// Learning uses the same endpoint, model and capability configuration as text processing.
+    func processAnalysis(_ prompt: String) async throws -> String {
+        let service = configuredService(usage: .text)
+        let config = service.requestConfig(temperature: 0.3, maxTokens: 4096,
+            deepThinking: UserDefaults.standard.bool(forKey: AppDefaults.Keys.enableDeepThinking))
+        return try await executeWithRetry {
+            try await self.getProviderInstance(for: service.provider).send(
+                messages: [AIMessage(role: .user, text: prompt)], config: config)
+        }
+    }
+
     // MARK: - Text Processing
     
     func processText(_ text: String, mode: PromptMode = .defaultTranslation, sourceLanguage: String = "Auto Detect", targetLanguage: String = "简体中文", userPerception: String? = nil, userInstruction: String? = nil) async throws -> String {
-        let provider = getAPIProvider()
+        let service = configuredService(usage: .text)
         let preprocessedText = preprocessInput(text)
-        
-        guard let apiKey = UserDefaults.standard.string(forKey: getAPIKeyName(for: provider)), !apiKey.isEmpty else {
-            return "Please set your \(provider.rawValue) API Key in Settings."
-        }
-        
-        let model = getModel(for: provider, usage: .text)
-        let providerInstance = getProviderInstance(for: provider)
-        
-        // MARK: - 双模态推理策略
-        // 1. 获取用户设置
-        let enableDeepThinking = UserDefaults.standard.bool(forKey: "enable_deep_thinking")
-        let isReasoning = providerInstance.isReasoningModel(model)
-        
-        // 2. 决策：API 层推理 vs Prompt 层 CoT
-        let apiReasoning: Bool
-        let promptCoT: Bool
-        
-        if mode == .defaultTranslation {
-            // 翻译模式：强管控
-            if enableDeepThinking {
-                // 开关打开
-                if isReasoning {
-                    // 推理模型：启用 API 推理，不加 Prompt CoT（避免双重推理）
-                    apiReasoning = true
-                    promptCoT = false
-                } else {
-                    // 非推理模型：通过 Prompt 添加 thinking_process
-                    apiReasoning = false  // 非推理模型不支持 API 推理
-                    promptCoT = true
-                }
-            } else {
-                // 开关关闭：无论模型类型，都不启用任何推理
-                apiReasoning = false
-                promptCoT = false
-            }
-        } else {
-            // 自定义/预设模式：弱管控
-            // 只对推理模型受开关影响，非推理模型不受影响
-            apiReasoning = isReasoning && enableDeepThinking
-            promptCoT = false  // 不控制 Prompt，用户自行处理
-        }
-        
-        // 3. 生成 Prompt（传递 promptCoT 参数）
+        let deepThinking = UserDefaults.standard.bool(forKey: AppDefaults.Keys.enableDeepThinking)
+        let enhanceReview = service.shouldEnhanceReview(mode: mode, deepThinking: deepThinking)
+
+        // 生成任务 Prompt，与 API 推理控制分离
         let prompts = generatePrompts(
             for: mode,
             text: preprocessedText,
@@ -112,7 +68,7 @@ class AIService: ObservableObject {
             targetLanguage: targetLanguage,
             userPerception: userPerception,
             userInstruction: userInstruction,
-            enableCoT: promptCoT  // 新增：传递 CoT 控制
+            enhanceReview: enhanceReview
         )
         
         // 组装消息
@@ -121,20 +77,12 @@ class AIService: ObservableObject {
             AIMessage(role: .user, text: prompts.user)
         ]
         
-        // 4. 组装配置（使用决策后的 apiReasoning）
-        let config = AIRequestConfig(
-            apiKey: apiKey,
-            model: model,
-            temperature: getTemperature(for: preprocessedText),
-            maxTokens: getMaxTokens(for: preprocessedText),
-            enableNativeReasoning: apiReasoning
-        )
-        
-        // 5. 使用 Provider 发送请求
+        let config = service.requestConfig(temperature: getTemperature(for: preprocessedText),
+                                          maxTokens: getMaxTokens(for: preprocessedText), deepThinking: deepThinking)
         let rawResult = try await executeWithRetry {
-            try await providerInstance.send(messages: messages, config: config)
+            try await self.getProviderInstance(for: service.provider).send(messages: messages, config: config)
         }
-        
+
         // 解析 JSON 响应
         let cleanJSON = extractJSON(from: rawResult)
         
@@ -159,70 +107,28 @@ class AIService: ObservableObject {
     /// 处理图片识别（支持多 API 提供商）
     /// - Parameters:
     ///   - image: 要识别的图片
-    ///   - instruction: 给 AI 的系统指令
     ///   - mode: 提示词模式（翻译/预设/自定义）
     /// - Returns: AI 的响应文本
-    func processImage(_ image: NSImage, instruction: String, mode: PromptMode = .defaultTranslation) async throws -> String {
-        let provider = getProvider(for: .image)
-        
-        guard let apiKey = getAPIKey(for: provider, usage: .image), !apiKey.isEmpty else {
-            throw NSError(domain: "AIError", code: 1, 
-                         userInfo: [NSLocalizedDescriptionKey: "Please set your \(provider.rawValue) API Key in Settings for image recognition."])
-        }
-        
-        // 将 NSImage 转换为 Data
+    func processImage(_ image: NSImage, mode: PromptMode = .defaultTranslation,
+                      sourceLanguage: String = "Auto Detect", targetLanguage: String = "简体中文",
+                      userPerception: String? = nil, userInstruction: String? = nil) async throws -> String {
+        // Resolve once so the prompt and transport use the same capability snapshot.
+        let service = configuredService(usage: .image)
         guard let imageData = imageToData(image) else {
-            throw NSError(domain: "AIError", code: 2, 
-                         userInfo: [NSLocalizedDescriptionKey: "Failed to encode image."])
+            throw AIServiceError.configuration("Failed to encode image.")
         }
-        
-        let model = getModel(for: provider, usage: .image)
-        
-        // 组装消息：系统提示词 + 用户消息（带图片）
-        let messages: [AIMessage] = [
-            AIMessage(role: .system, text: instruction, image: nil),
-            AIMessage(role: .user, text: "Please process this image according to the instructions.", image: imageData)
-        ]
-        
-        // MARK: - 图片模式双模态推理策略（与文本模式完全一致）
-        let enableDeepThinking = UserDefaults.standard.bool(forKey: "enable_deep_thinking")
-        let providerInstance = getProviderInstance(for: provider)
-        let isReasoning = providerInstance.isReasoningModel(model)
-        
-        let apiReasoning: Bool
-        
-        if mode == .defaultTranslation {
-            // 翻译模式：强管控
-            if enableDeepThinking {
-                if isReasoning {
-                    // 推理模型：启用 API 推理
-                    apiReasoning = true
-                } else {
-                    // 非推理模型：不支持 API 推理（promptCoT 在 Prompt 层控制）
-                    apiReasoning = false
-                }
-            } else {
-                // 开关关闭：不启用推理
-                apiReasoning = false
-            }
-        } else {
-            // 预设/自定义模式：弱管控
-            // 只对推理模型受开关影响
-            apiReasoning = isReasoning && enableDeepThinking
+        let deepThinking = UserDefaults.standard.bool(forKey: AppDefaults.Keys.enableDeepThinking)
+        let instruction = PromptCoordinator.shared.generateImageSystemPrompt(
+            mode: mode, sourceLanguage: sourceLanguage, targetLanguage: targetLanguage,
+            enhanceReview: service.shouldEnhanceReview(mode: mode, deepThinking: deepThinking),
+            customPerception: userPerception, customInstruction: userInstruction)
+        let messages = [AIMessage(role: .system, text: instruction),
+                        AIMessage(role: .user, text: "Please process this image according to the instructions.", image: imageData)]
+        let config = service.requestConfig(temperature: 0.1, maxTokens: 4096, deepThinking: deepThinking)
+        let rawResult = try await executeWithRetry {
+            try await self.getProviderInstance(for: service.provider).send(messages: messages, config: config)
         }
-        
-        // 组装配置
-        let config = AIRequestConfig(
-            apiKey: apiKey,
-            model: model,
-            temperature: 0.1,
-            maxTokens: 4096,
-            enableNativeReasoning: apiReasoning
-        )
-        
-        // 使用 Provider 发送请求
-        let rawResult = try await providerInstance.send(messages: messages, config: config)
-        
+
         let parsedResult = parseImageResult(rawResult)
         
         // 保存到历史记录
@@ -303,104 +209,6 @@ class AIService: ObservableObject {
     enum APIUsage {
         case text
         case image
-    }
-    
-    /// Get the API provider for the specified usage context
-    private func getProvider(for usage: APIUsage) -> APIProvider {
-        switch usage {
-        case .text:
-            return getAPIProvider()
-        case .image:
-            // If apply_api_to_image_mode is true (or key doesn't exist, defaulting to true), use text provider
-            if shouldUseTextSettingsForImage() {
-                return getAPIProvider()
-            }
-            // Use image-specific provider
-            if let providerString = UserDefaults.standard.string(forKey: "image_api_provider"),
-               let provider = APIProvider(rawValue: providerString) {
-                return provider
-            }
-            return .gemini
-        }
-    }
-    
-    /// Get the API key for the specified provider and usage context
-    private func getAPIKey(for provider: APIProvider, usage: APIUsage) -> String? {
-        let prefix = (usage == .image && !shouldUseTextSettingsForImage()) ? "image_" : ""
-        
-        switch provider {
-        case .gemini:
-            return UserDefaults.standard.string(forKey: "\(prefix)gemini_api_key")
-        case .openai:
-            return UserDefaults.standard.string(forKey: "\(prefix)openai_api_key")
-        case .zhipu:
-            return UserDefaults.standard.string(forKey: "\(prefix)zhipu_api_key")
-        case .minimax:
-            return UserDefaults.standard.string(forKey: "\(prefix)minimax_api_key")
-        case .deepseek:
-            return UserDefaults.standard.string(forKey: "\(prefix)deepseek_api_key")
-        }
-    }
-    
-    /// Get the API key name for a provider (for text usage)
-    private func getAPIKeyName(for provider: APIProvider) -> String {
-        switch provider {
-        case .gemini:
-            return "gemini_api_key"
-        case .openai:
-            return "openai_api_key"
-        case .zhipu:
-            return "zhipu_api_key"
-        case .minimax:
-            return "minimax_api_key"
-        case .deepseek:
-            return "deepseek_api_key"
-        }
-    }
-    
-    /// Get the model for the specified provider and usage context
-    private func getModel(for provider: APIProvider, usage: APIUsage) -> String {
-        let prefix = (usage == .image && !shouldUseTextSettingsForImage()) ? "image_" : ""
-        
-        switch provider {
-        case .gemini:
-            return UserDefaults.standard.string(forKey: "\(prefix)gemini_model") ?? "gemini-2.5-flash"
-        case .openai:
-            return UserDefaults.standard.string(forKey: "\(prefix)openai_model") ?? "gpt-4o-mini"
-        case .zhipu:
-            let defaultModel = (usage == .image) ? "GLM-4.5V" : "GLM-4.5-Air"
-            return UserDefaults.standard.string(forKey: "\(prefix)zhipu_model") ?? defaultModel
-        case .minimax:
-            return UserDefaults.standard.string(forKey: "\(prefix)minimax_model") ?? "MiniMax-M2.5"
-        case .deepseek:
-            return UserDefaults.standard.string(forKey: "\(prefix)deepseek_model") ?? "deepseek-chat"
-        }
-    }
-    
-    /// Check if image mode should use text settings (apply_api_to_image_mode toggle)
-    private func shouldUseTextSettingsForImage() -> Bool {
-        // Default to true if key doesn't exist
-        if UserDefaults.standard.object(forKey: "apply_api_to_image_mode") == nil {
-            return true
-        }
-        return UserDefaults.standard.bool(forKey: "apply_api_to_image_mode")
-    }
-    
-    private func getAPIProvider() -> APIProvider {
-        // Check UserDefaults first (new way)
-        if let providerString = UserDefaults.standard.string(forKey: "api_provider"),
-           let provider = APIProvider(rawValue: providerString) {
-            return provider
-        }
-        
-        // Fallback to Keychain (old way)
-        if let data = KeychainHelper.shared.read(service: "com.yisi.app", account: "api_provider"),
-           let providerString = String(data: data, encoding: .utf8),
-           let provider = APIProvider(rawValue: providerString) {
-            return provider
-        }
-        
-        return .gemini
     }
     
     // MARK: - Smart Pre-processing
@@ -730,7 +538,7 @@ class AIService: ObservableObject {
         targetLanguage: String,
         userPerception: String?,
         userInstruction: String?,
-        enableCoT: Bool = false  // 新增：是否在翻译模式输出 thinking_process
+        enhanceReview: Bool = false  // 是否加强默认翻译的语义和格式检查
     ) -> (system: String, user: String) {
         // AI 自动检测语言，无需预先检测
         let systemPrompt: String
@@ -743,7 +551,7 @@ class AIService: ObservableObject {
             systemPrompt = PromptCoordinator.shared.generateSystemPrompt(
                 for: mode,
                 withLearnedRules: true,
-                enableCoT: enableCoT  // 传递 CoT 控制
+                enhanceReview: enhanceReview  // 加强翻译检查
             )
         }
         
@@ -782,7 +590,7 @@ class AIService: ObservableObject {
     
     private func getMaxTokens(for text: String) -> Int {
         // Translation output is typically 1.5-3x input length (especially CN<->EN)
-        // Plus JSON overhead (detected_type, thinking_process, etc.) ~500 tokens
+        // Plus JSON overhead (detected_type, etc.) ~500 tokens
         // No hard cap - let the provider's native limit handle it
         let estimatedTokens = text.count * 3 + 500  // 3x for translation expansion + JSON overhead
         return max(1024, estimatedTokens)  // Minimum 1024 tokens
@@ -820,13 +628,10 @@ class AIService: ObservableObject {
                 return try await operation()
             } catch {
                 lastError = error
-                // Don't retry on certain errors (like missing API key)
-                if let nsError = error as NSError?, 
-                   nsError.domain == "TranslationError",
-                   nsError.localizedDescription.contains("API Key") {
-                    throw error
-                }
-                
+                if error is CancellationError { throw error }
+                if let serviceError = error as? AIServiceError, !serviceError.shouldRetry { throw error }
+                if let urlError = error as? URLError, urlError.code == .cancelled { throw error }
+
                 // Exponential backoff: 1s, 2s, 4s
                 if attempt < maxRetries - 1 {
                     let delay = UInt64(pow(2.0, Double(attempt))) * 1_000_000_000

@@ -2,7 +2,7 @@ import Foundation
 
 struct TranslationResponse: Codable {
     let detected_type: String
-    let thinking_process: String?  // 可选：仅在 promptCoT=true 时输出
+    let thinking_process: String?  // 兼容旧响应；新的 Prompt 不要求输出分析过程
     let translation_result: String
 }
 

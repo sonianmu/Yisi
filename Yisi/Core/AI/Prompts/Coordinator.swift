@@ -25,7 +25,7 @@ class PromptCoordinator {
     ///   - mode: 提示词模式（翻译/预设/临时自定义）
     ///   - withLearnedRules: 是否包含用户纠正的学习规则
     ///   - hasImage: 是否为图片输入（仅翻译模式使用）
-    ///   - enableCoT: 是否输出 thinking_process 字段（仅翻译模式 + 非推理模型 + 开关开启）
+    ///   - enhanceReview: 是否加强翻译检查（仅确认无原生推理的翻译模型）
     ///   - sourceLanguage: 源语言（图片模式需要）
     ///   - targetLanguage: 目标语言（图片模式需要）
     /// - Returns: 完整的系统提示词
@@ -33,7 +33,7 @@ class PromptCoordinator {
         for mode: PromptMode,
         withLearnedRules: Bool = true,
         hasImage: Bool = false,
-        enableCoT: Bool = false,
+        enhanceReview: Bool = false,
         sourceLanguage: String = "Auto Detect",
         targetLanguage: String = "简体中文"
     ) -> String {
@@ -44,7 +44,7 @@ class PromptCoordinator {
                 withLearnedRules: withLearnedRules,
                 preset: nil,
                 hasImage: hasImage,
-                enableCoT: enableCoT,
+                enhanceReview: enhanceReview,
                 sourceLanguage: sourceLanguage,
                 targetLanguage: targetLanguage
             )
@@ -100,7 +100,7 @@ class PromptCoordinator {
     ///   - mode: 提示词模式
     ///   - sourceLanguage: 源语言
     ///   - targetLanguage: 目标语言
-    ///   - enableCoT: 是否输出 thinking_process 字段
+    ///   - enhanceReview: 是否加强翻译检查
     ///   - customPerception: 自定义感知（用于自定义模式）
     ///   - customInstruction: 自定义指令（用于自定义模式）
     /// - Returns: 给 AI 的图片处理系统提示词
@@ -108,7 +108,7 @@ class PromptCoordinator {
         mode: PromptMode,
         sourceLanguage: String,
         targetLanguage: String,
-        enableCoT: Bool = false,
+        enhanceReview: Bool = false,
         customPerception: String? = nil,
         customInstruction: String? = nil
     ) -> String {
@@ -119,7 +119,7 @@ class PromptCoordinator {
                 for: mode,
                 withLearnedRules: true,
                 hasImage: true,
-                enableCoT: enableCoT,
+                enhanceReview: enhanceReview,
                 sourceLanguage: sourceLanguage,
                 targetLanguage: targetLanguage
             )

@@ -57,8 +57,6 @@ class LearningManager {
         aiTranslation: String,
         userCorrection: String
     ) async throws -> UserLearnedRule {
-        // Use Gemini/Zhipu to analyze the correction
-        let provider = getAPIProvider()
         let analysisPrompt = generateAnalysisPrompt(
             originalText: originalText,
             aiTranslation: aiTranslation,
@@ -66,7 +64,7 @@ class LearningManager {
         )
         
         // Call API
-        let analysisJSON = try await callAnalysisAPI(prompt: analysisPrompt, provider: provider)
+        let analysisJSON = try await AIService.shared.processAnalysis(analysisPrompt)
         
         // Clean and parse response
         let cleanedJSON = extractJSON(from: analysisJSON)
@@ -164,124 +162,6 @@ class LearningManager {
     }
 
     
-    private func callAnalysisAPI(prompt: String, provider: APIProvider) async throws -> String {
-        // Reuse TranslationService's API calling logic
-        guard let apiKey = getAPIKey(for: provider) else {
-            throw NSError(domain: "LearningError", code: 1, userInfo: [NSLocalizedDescriptionKey: "Missing API Key"])
-        }
-        
-        switch provider {
-        case .gemini:
-            return try await callGeminiAnalysis(prompt: prompt, apiKey: apiKey)
-        case .zhipu:
-            return try await callZhipuAnalysis(prompt: prompt, apiKey: apiKey)
-        case .deepseek:
-            return try await callDeepSeekAnalysis(prompt: prompt, apiKey: apiKey)
-        default:
-            throw NSError(domain: "LearningError", code: 2, userInfo: [NSLocalizedDescriptionKey: "Unsupported provider for analysis"])
-        }
-    }
-    
-    private func callGeminiAnalysis(prompt: String, apiKey: String) async throws -> String {
-        let body: [String: Any] = [
-            "contents": [
-                ["parts": [["text": prompt]]]
-            ],
-            "generationConfig": [
-                "response_mime_type": "application/json",
-                "temperature": 0.3
-            ]
-        ]
-        
-        let jsonData = try JSONSerialization.data(withJSONObject: body)
-        
-        guard let url = URL(string: "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=\(apiKey)") else {
-            throw NSError(domain: "LearningError", code: 3, userInfo: [NSLocalizedDescriptionKey: "Invalid URL"])
-        }
-        
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.addValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.httpBody = jsonData
-        request.timeoutInterval = 30
-        
-        let (data, _) = try await URLSession.shared.data(for: request)
-        
-        if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-           let candidates = json["candidates"] as? [[String: Any]],
-           let firstCandidate = candidates.first,
-           let content = firstCandidate["content"] as? [String: Any],
-           let parts = content["parts"] as? [[String: Any]],
-           let firstPart = parts.first,
-           let text = firstPart["text"] as? String {
-            return text
-        }
-        
-        throw NSError(domain: "LearningError", code: 4, userInfo: [NSLocalizedDescriptionKey: "Failed to parse analysis"])
-    }
-    
-    private func callZhipuAnalysis(prompt: String, apiKey: String) async throws -> String {
-        let body: [String: Any] = [
-            "model": "glm-4.5-air",
-            "messages": [
-                ["role": "user", "content": prompt]
-            ],
-            "temperature": 0.3
-        ]
-        
-        let jsonData = try JSONSerialization.data(withJSONObject: body)
-        
-        var request = URLRequest(url: URL(string: "https://open.bigmodel.cn/api/paas/v4/chat/completions")!)
-        request.httpMethod = "POST"
-        request.addValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
-        request.addValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.httpBody = jsonData
-        request.timeoutInterval = 30
-        
-        let (data, _) = try await URLSession.shared.data(for: request)
-        
-        if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-           let choices = json["choices"] as? [[String: Any]],
-           let firstChoice = choices.first,
-           let message = firstChoice["message"] as? [String: Any],
-           let content = message["content"] as? String {
-            return content
-        }
-        
-        throw NSError(domain: "LearningError", code: 4, userInfo: [NSLocalizedDescriptionKey: "Failed to parse analysis"])
-    }
-
-    private func callDeepSeekAnalysis(prompt: String, apiKey: String) async throws -> String {
-        let body: [String: Any] = [
-            "model": "deepseek-chat",
-            "messages": [
-                ["role": "user", "content": prompt]
-            ],
-            "temperature": 0.3
-        ]
-
-        let jsonData = try JSONSerialization.data(withJSONObject: body)
-
-        var request = URLRequest(url: URL(string: "https://api.deepseek.com/chat/completions")!)
-        request.httpMethod = "POST"
-        request.addValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
-        request.addValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.httpBody = jsonData
-        request.timeoutInterval = 30
-
-        let (data, _) = try await URLSession.shared.data(for: request)
-
-        if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-           let choices = json["choices"] as? [[String: Any]],
-           let firstChoice = choices.first,
-           let message = firstChoice["message"] as? [String: Any],
-           let content = message["content"] as? String {
-            return content
-        }
-
-        throw NSError(domain: "LearningError", code: 4, userInfo: [NSLocalizedDescriptionKey: "Failed to parse analysis"])
-    }
-
     // MARK: - Database Operations
     
     func saveRule(_ rule: UserLearnedRule) throws {
@@ -406,31 +286,6 @@ class LearningManager {
         )
     }
     
-    // MARK: - Helper Methods
-    
-    private func getAPIProvider() -> APIProvider {
-        if let providerString = UserDefaults.standard.string(forKey: "api_provider"),
-           let provider = APIProvider(rawValue: providerString) {
-            return provider
-        }
-        return .gemini
-    }
-    
-    private func getAPIKey(for provider: APIProvider) -> String? {
-        switch provider {
-        case .gemini:
-            return UserDefaults.standard.string(forKey: "gemini_api_key")
-        case .zhipu:
-            return UserDefaults.standard.string(forKey: "zhipu_api_key")
-        case .openai:
-            return UserDefaults.standard.string(forKey: "openai_api_key")
-        case .minimax:
-            return UserDefaults.standard.string(forKey: "minimax_api_key")
-        case .deepseek:
-            return UserDefaults.standard.string(forKey: "deepseek_api_key")
-        }
-    }
-
     deinit {
         sqlite3_close(db)
     }

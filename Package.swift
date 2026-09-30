@@ -13,6 +13,7 @@ let package = Package(
         .executableTarget(
             name: "Yisi",
             path: "Yisi"
-        )
+        ),
+        .testTarget(name: "YisiTests", dependencies: ["Yisi"], path: "Tests/YisiTests")
     ]
 )

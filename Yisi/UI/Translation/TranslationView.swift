@@ -693,19 +693,12 @@ struct TranslationView: View {
                         userInstruction: mode == .temporaryCustom ? customOutputInstruction : nil
                     )
                 } else {
-                    // AI Vision (unchanged)
-                    let enableCoT = AIService.shared.shouldEnableCoT(for: mode, usage: .image)
-
-                    let instruction = PromptCoordinator.shared.generateImageSystemPrompt(
-                        mode: mode,
-                        sourceLanguage: sourceLanguage.rawValue,
+                    translatedText = try await AIService.shared.processImage(
+                        image, mode: mode, sourceLanguage: sourceLanguage.rawValue,
                         targetLanguage: targetLanguage.rawValue,
-                        enableCoT: enableCoT,
-                        customPerception: mode == .temporaryCustom ? customInputPerception : nil,
-                        customInstruction: mode == .temporaryCustom ? customOutputInstruction : nil
-                    )
+                        userPerception: mode == .temporaryCustom ? customInputPerception : nil,
+                        userInstruction: mode == .temporaryCustom ? customOutputInstruction : nil)
 
-                    translatedText = try await AIService.shared.processImage(image, instruction: instruction, mode: mode)
                 }
             }
             

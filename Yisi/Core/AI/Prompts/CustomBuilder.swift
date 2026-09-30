@@ -86,7 +86,6 @@ class CustomPromptBuilder {
         ```json
         {
           "task_type": "Brief description of what you did",
-          "thinking_process": "Your brief analysis",
           "result": "PLAIN TEXT answer only - NO HTML, NO LINKS, NO MARKUP"
         }
         ```

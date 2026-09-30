@@ -5,15 +5,15 @@ import Foundation
 /// 职责：
 /// - 生成翻译任务的系统提示词（统一文本/图片入口）
 /// - 集成 Learned Rules（仅翻译模式）
-/// - 根据 enableCoT 动态调整 JSON 输出格式
+/// - 根据 enhanceReview 加强翻译质量检查
 ///
 /// Prompt 结构（按执行顺序）：
 /// 1. 视觉处理协议（仅图片模式）
 /// 2. 核心翻译哲学（"语言炼金师"角色定义）
-/// 3. Few-Shot 示例（动态：根据 enableCoT 调整）
+/// 3. 翻译检查与 Few-Shot 示例
 /// 4. Anti-Mechanical Rules（边缘案例防错）
 /// 5. Learned Rules（用户纠正记录）
-/// 6. 输出格式（动态：根据 enableCoT 调整）
+/// 6. 稳定的输出格式
 class TranslationPromptBuilder {
     
     // MARK: - Public Interface
@@ -24,7 +24,7 @@ class TranslationPromptBuilder {
     ///   - withLearnedRules: 是否包含用户纠正的学习规则
     ///   - preset: 可选的预设（保留接口，暂未使用）
     ///   - hasImage: 是否为图片输入模式
-    ///   - enableCoT: 是否在 JSON 输出中包含 thinking_process 字段
+    ///   - enhanceReview: 是否加强翻译质量检查
     ///   - sourceLanguage: 源语言
     ///   - targetLanguage: 目标语言
     /// - Returns: 完整的系统提示词
@@ -32,7 +32,7 @@ class TranslationPromptBuilder {
         withLearnedRules: Bool = true,
         preset: PromptPreset? = nil,
         hasImage: Bool = false,
-        enableCoT: Bool = false,
+        enhanceReview: Bool = false,
         sourceLanguage: String = "Auto Detect",
         targetLanguage: String = "简体中文"
     ) -> String {
@@ -54,9 +54,12 @@ class TranslationPromptBuilder {
         prompt += buildCorePhilosophy()
         
         // ═══════════════════════════════════════════════════════════
-        // 阶段 3：Few-Shot 示例（根据 enableCoT 动态调整）
+        // 阶段 3：翻译检查与 Few-Shot 示例
         // ═══════════════════════════════════════════════════════════
-        prompt += buildFewShotSamples(enableCoT: enableCoT)
+        if enhanceReview {
+            prompt += "\nBefore returning the translation, check ambiguous meanings, terminology, omitted content and formatting. Return only the requested result JSON.\n"
+        }
+        prompt += buildFewShotSamples()
         
         // ═══════════════════════════════════════════════════════════
         // 阶段 4：Anti-Mechanical Rules（边缘案例防错）
@@ -71,9 +74,9 @@ class TranslationPromptBuilder {
         }
         
         // ═══════════════════════════════════════════════════════════
-        // 阶段 6：输出格式（根据 enableCoT 动态调整）
+        // 阶段 6：输出格式
         // ═══════════════════════════════════════════════════════════
-        prompt += buildOutputFormat(enableCoT: enableCoT)
+        prompt += buildOutputFormat()
         
         return prompt
     }
@@ -160,62 +163,9 @@ You must strictly follow these rules:
     
     // MARK: - 阶段 3：Few-Shot 示例
     
-    /// 构建 Few-Shot 示例（根据 enableCoT 动态调整是否包含 thinking_process）
-    private func buildFewShotSamples(enableCoT: Bool) -> String {
-        if enableCoT {
-            // 非推理模型 + 开关开启：示例包含 thinking_process
-            return """
-### Golden Few-Shot Samples
-
-#### 1. [Cultural / Literary] (Interpretive & Rhymed)
-Input: "吾已矣，乘桴且凭浮于海。"
-Output:
-{
-    "detected_type": "literary",
-    "thinking_process": "Quote from Confucius. '乘桴' refers to a raft. Expresses disillusionment. Needs poetic rhythm.",
-    "translation_result": "Better go floating on the sea, like Confucius. / I'm done with ambition and done with illusion."
-}
-
-#### 2. [Legal / Contract] (Strict & Zero-Tolerance)
-Input: "In the event of Force Majeure, neither party shall be liable for delay."
-Output:
-{
-    "detected_type": "legal",
-    "thinking_process": "Standard legal clause. 'Force Majeure' -> '不可抗力'. Formal tone required.",
-    "translation_result": "若发生不可抗力事件，任何一方均不对延迟履行承担责任。"
-}
-
-#### 3. [Medical / Pharma] (Precision Terminology)
-Input: "Patient presents with myocardial infarction."
-Output:
-{
-    "detected_type": "medical",
-    "thinking_process": "Medical diagnosis. 'Myocardial infarction' -> '心肌梗死'. Strict ontology.",
-    "translation_result": "患者表现为心肌梗死。"
-}
-
-#### 4. [Modern Metaphor / Idiom] (Contextual Decoding)
-Input: "We need to address the elephant in the room."
-Output:
-{
-    "detected_type": "general",
-    "thinking_process": "Idiom 'elephant in the room' means an obvious problem people avoid. Direct translation fails.",
-    "translation_result": "我们需要解决那个大家心照不宣却避而不谈的棘手问题（房间里的大象）。"
-}
-
-#### 5. [Markdown / Technical] (Format Preservation)
-Input: "To fix this, set `display: flex` in the **container**."
-Output:
-{
-    "detected_type": "technical",
-    "thinking_process": "Contains Markdown code and bold. Must preserve tags.",
-    "translation_result": "要修复此问题，请在 **container** 中设置 `display: flex`。"
-}
-
-"""
-        } else {
-            // 推理模型或开关关闭：示例不含 thinking_process
-            return """
+    /// 构建 Few-Shot 示例
+    private func buildFewShotSamples() -> String {
+        return """
 ### Golden Few-Shot Samples
 
 #### 1. [Cultural / Literary] (Interpretive & Rhymed)
@@ -259,7 +209,6 @@ Output:
 }
 
 """
-        }
     }
     
     // MARK: - 阶段 4：Anti-Mechanical Rules
@@ -371,30 +320,9 @@ Based on your previous corrections, you should follow these additional rules:
     
     // MARK: - 阶段 6：输出格式
     
-    /// 构建输出格式（根据 enableCoT 动态调整是否包含 thinking_process）
-    private func buildOutputFormat(enableCoT: Bool) -> String {
-        if enableCoT {
-            // 非推理模型 + 开关开启：输出 thinking_process 字段
-            return """
-═══════════════════════════════════════════════════════════
-
-### ⚠️ CRITICAL OUTPUT FORMAT ⚠️
-
-**THIS IS NOT TEXT TO TRANSLATE. THIS IS YOUR OUTPUT STRUCTURE.**
-
-You MUST return your response as a JSON object with EXACTLY these English keys:
-
-```json
-{
-  "detected_type": "literary | legal | medical | technical | general",
-  "thinking_process": "Your brief analysis in English",
-  "translation_result": "The ONLY field containing translated text"
-}
-```
-"""
-        } else {
-            // 推理模型或开关关闭：不输出 thinking_process
-            return """
+    /// 构建稳定的输出格式
+    private func buildOutputFormat() -> String {
+        return """
 ═══════════════════════════════════════════════════════════
 
 ### ⚠️ CRITICAL OUTPUT FORMAT ⚠️
@@ -410,6 +338,5 @@ You MUST return your response as a JSON object with EXACTLY these English keys:
 }
 ```
 """
-        }
     }
 }

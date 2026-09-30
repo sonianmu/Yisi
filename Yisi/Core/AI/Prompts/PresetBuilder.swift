@@ -80,7 +80,6 @@ class PresetPromptBuilder {
         ```json
         {
           "task_type": "Brief description of what you did",
-          "thinking_process": "Your brief analysis in English",
           "result": "PLAIN TEXT answer only - NO HTML, NO LINKS, NO MARKUP"
         }
         ```

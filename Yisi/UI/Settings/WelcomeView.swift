@@ -9,6 +9,8 @@ struct WelcomeView: View {
     @State private var pulsing = false
     @State private var heroLoaded = false
     @State private var readyLoaded = false
+    @State private var requestingScreenCapture = false
+    @State private var relaunching = false
 
     @AppStorage(AppDefaults.Keys.apiProvider) private var apiProvider: String = AppDefaults.apiProvider
     @AppStorage(AppDefaults.Keys.geminiApiKey) private var geminiKey: String = ""
@@ -18,21 +20,22 @@ struct WelcomeView: View {
     @AppStorage(AppDefaults.Keys.deepseekApiKey) private var deepseekKey: String = ""
 
     var onComplete: () -> Void
+    private let tracksProgress: Bool
 
     init(forceStartFromHero: Bool = false, onComplete: @escaping () -> Void) {
         self.onComplete = onComplete
+        self.tracksProgress = !forceStartFromHero
         let acc = AXIsProcessTrusted()
         let scr = CGPreflightScreenCaptureAccess()
         _accessibilityGranted = State(initialValue: acc)
         _screenCaptureGranted = State(initialValue: scr)
         if forceStartFromHero {
             _currentStep = State(initialValue: 0)
-        } else if acc && scr {
-            _currentStep = State(initialValue: 4)
-        } else if acc {
-            _currentStep = State(initialValue: 3)
         } else {
-            _currentStep = State(initialValue: 0)
+            _currentStep = State(initialValue: WelcomeProgress.initialStep(
+                savedStep: UserDefaults.standard.integer(forKey: AppDefaults.Keys.welcomeStep),
+                accessibilityGranted: acc, screenCaptureGranted: scr
+            ))
         }
     }
 
@@ -78,6 +81,11 @@ struct WelcomeView: View {
             }
         }
         .onDisappear { timer?.invalidate() }
+        .onChange(of: currentStep) { _, step in
+            if tracksProgress {
+                UserDefaults.standard.set(step, forKey: AppDefaults.Keys.welcomeStep)
+            }
+        }
     }
 
     private var pageTransition: AnyTransition {
@@ -303,6 +311,21 @@ struct WelcomeView: View {
                 .foregroundColor(.secondary)
                 .padding(.top, 8)
 
+            Text("Enable Yisi in System Settings. If it is missing, reveal the app in Finder and add it with the + button.".localized)
+                .font(.system(size: 12))
+                .foregroundColor(.secondary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 44)
+                .padding(.top, 16)
+
+            Button("Show App in Finder".localized) {
+                NSWorkspace.shared.activateFileViewerSelecting([Bundle.main.bundleURL])
+            }
+            .buttonStyle(.plain)
+            .font(.system(size: 12))
+            .foregroundColor(.secondary)
+            .padding(.top, 10)
+
             RoundedRectangle(cornerRadius: 1)
                 .fill(AppColors.primary.opacity(screenCaptureGranted ? 0.5 : 0.12))
                 .frame(width: screenCaptureGranted ? 120 : 40, height: 2)
@@ -315,17 +338,10 @@ struct WelcomeView: View {
                 if screenCaptureGranted {
                     withAnimation { currentStep = 4 }
                 } else {
-                    CGRequestScreenCaptureAccess()
-                    SCShareableContent.getExcludingDesktopWindows(false, onScreenWindowsOnly: false) { _, _ in }
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                        let task = Process()
-                        task.launchPath = "/usr/bin/open"
-                        task.arguments = ["x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture"]
-                        try? task.run()
-                    }
+                    requestScreenCapturePermission()
                 }
             }) {
-                Text(screenCaptureGranted ? "Next".localized : "Enable".localized)
+                Text(requestingScreenCapture ? "Waiting for authorization…".localized : (screenCaptureGranted ? "Next".localized : "Enable".localized))
                     .font(.system(size: 14, weight: .medium, design: .serif))
                     .foregroundColor(screenCaptureGranted ? .white : AppColors.primary)
                     .frame(maxWidth: .infinity)
@@ -345,6 +361,7 @@ struct WelcomeView: View {
                     )
             }
             .buttonStyle(.plain)
+            .disabled(requestingScreenCapture)
             .padding(.horizontal, 52)
             .padding(.bottom, 36)
             .animation(.easeInOut(duration: 0.4), value: screenCaptureGranted)
@@ -459,6 +476,28 @@ struct WelcomeView: View {
 
     // MARK: - Helpers
 
+    private func requestScreenCapturePermission() {
+        guard !requestingScreenCapture else { return }
+        if tracksProgress {
+            // System Settings may terminate us before the request callback runs.
+            UserDefaults.standard.set(3, forKey: AppDefaults.Keys.welcomeStep)
+            UserDefaults.standard.synchronize()
+        }
+        requestingScreenCapture = true
+        // Wait for ScreenCaptureKit's authorization request to finish before
+        // opening Settings, so the app's permission entry has time to appear.
+        SCShareableContent.getExcludingDesktopWindows(false, onScreenWindowsOnly: false) { _, _ in
+            DispatchQueue.main.async {
+                requestingScreenCapture = false
+                if CGPreflightScreenCaptureAccess() {
+                    relaunchApp()
+                } else if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture") {
+                    NSWorkspace.shared.open(url)
+                }
+            }
+        }
+    }
+
     private func startPolling() {
         timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in
             let newAcc = AXIsProcessTrusted()
@@ -475,6 +514,11 @@ struct WelcomeView: View {
     }
 
     private func relaunchApp() {
+        guard !relaunching else { return }
+        relaunching = true
+        if tracksProgress {
+            UserDefaults.standard.set(3, forKey: AppDefaults.Keys.welcomeStep)
+        }
         timer?.invalidate()
         UserDefaults.standard.synchronize()
 
@@ -486,7 +530,11 @@ struct WelcomeView: View {
 
         let task = Process()
         task.launchPath = "/bin/sh"
-        task.arguments = ["-c", "sleep 0.5 && open '\(path)'"]
+        var arguments = ["-c", "sleep 0.5; exec /usr/bin/open -n \"$@\"", "yisi-relaunch", path]
+        if ProcessInfo.processInfo.arguments.contains("-auto_check_updates") {
+            arguments += ["--args", "-auto_check_updates", "NO"]
+        }
+        task.arguments = arguments
         try? task.run()
         NSApp.terminate(nil)
     }

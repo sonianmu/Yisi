@@ -3,14 +3,16 @@ import ServiceManagement
 import ScreenCaptureKit
 
 @main
-struct YisiApp: App {
-    @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
-    
-    @AppStorage(AppDefaults.Keys.appTheme) private var appTheme: String = AppDefaults.appTheme
-    
-    var body: some Scene {
-        Settings {
-            EmptyView()
+@MainActor
+enum YisiApp {
+    static func main() {
+        // All windows are managed by AppDelegate. A SwiftUI Settings scene with
+        // EmptyView can restore an extra, empty settings window at startup.
+        let application = NSApplication.shared
+        let delegate = AppDelegate()
+        application.delegate = delegate
+        withExtendedLifetime(delegate) {
+            application.run()
         }
     }
 }
@@ -24,6 +26,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         AppDefaults.registerDefaults()
         NSApp.setActivationPolicy(.accessory)
 
+        setupMainMenu()
         setupMenuBar()
         setupShortcutHandler()
 
@@ -39,13 +42,59 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             object: nil
         )
 
-        if !UserDefaults.standard.bool(forKey: AppDefaults.Keys.welcomeCompleted) {
-            showWelcome()
+        let completed = UserDefaults.standard.bool(forKey: AppDefaults.Keys.welcomeCompleted)
+        let savedStep = UserDefaults.standard.integer(forKey: AppDefaults.Keys.welcomeStep)
+        let accessibilityGranted = AXIsProcessTrusted()
+        let screenCaptureGranted = CGPreflightScreenCaptureAccess()
+        NSLog("Yisi startup: path=%@ step=%ld accessibility=%d screenCapture=%d completed=%d",
+              Bundle.main.bundlePath, savedStep, accessibilityGranted ? 1 : 0,
+              screenCaptureGranted ? 1 : 0, completed ? 1 : 0)
+        if !completed {
+            if WelcomeProgress.shouldOpenHome(
+                savedStep: savedStep,
+                accessibilityGranted: accessibilityGranted,
+                screenCaptureGranted: screenCaptureGranted
+            ) {
+                UserDefaults.standard.set(true, forKey: AppDefaults.Keys.welcomeCompleted)
+                toggleSettings()
+            } else {
+                showWelcome()
+            }
         }
 
         if UserDefaults.standard.bool(forKey: AppDefaults.Keys.autoCheckUpdates) {
             UpdateManager.shared.checkForUpdates(silent: true)
         }
+    }
+
+    private func setupMainMenu() {
+        // NSHostingView still needs standard AppKit editing actions for shortcuts
+        // such as Command-V in API key and service address fields.
+        let menu = NSMenu()
+        let appItem = NSMenuItem()
+        let appMenu = NSMenu(title: "Yisi")
+        let settings = NSMenuItem(title: "Settings".localized, action: #selector(toggleSettings), keyEquivalent: ",")
+        settings.target = self
+        appMenu.addItem(settings)
+        appMenu.addItem(.separator())
+        appMenu.addItem(withTitle: "Quit".localized, action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        appItem.submenu = appMenu
+        menu.addItem(appItem)
+
+        let editItem = NSMenuItem()
+        let editMenu = NSMenu(title: "Edit")
+        for (title, action, key) in [
+            ("Undo", "undo:", "z"),
+            ("Cut", "cut:", "x"),
+            ("Copy", "copy:", "c"),
+            ("Paste", "paste:", "v"),
+            ("Select All", "selectAll:", "a")
+        ] {
+            editMenu.addItem(withTitle: title.localized, action: NSSelectorFromString(action), keyEquivalent: key)
+        }
+        editItem.submenu = editMenu
+        menu.addItem(editItem)
+        NSApp.mainMenu = menu
     }
     
     private func setupMenuBar() {
@@ -190,6 +239,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
     
     @objc func toggleSettings() {
+        if !UserDefaults.standard.bool(forKey: AppDefaults.Keys.welcomeCompleted) {
+            if let window = welcomeWindow {
+                window.makeKeyAndOrderFront(nil)
+                NSApp.activate(ignoringOtherApps: true)
+            } else {
+                showWelcome()
+            }
+            return
+        }
         if settingsWindow == nil {
             let window = NSWindow(
                 contentRect: NSRect(x: 0, y: 0, width: AppDefaults.settingsWindowWidth, height: AppDefaults.settingsWindowHeight),
@@ -210,6 +268,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             
             window.contentView = NSHostingView(rootView: settingsView)
             window.isReleasedWhenClosed = false
+            window.isRestorable = false
             
             settingsWindow = window
         }
@@ -229,6 +288,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func showWelcome(isReentry: Bool = false) {
+        guard welcomeWindow == nil else { return }
+        settingsWindow?.orderOut(nil)
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 420, height: 520),
             styleMask: [.titled, .closable, .fullSizeContentView],
@@ -242,6 +303,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         window.isOpaque = false
         window.backgroundColor = .clear
         window.isReleasedWhenClosed = false
+        window.isRestorable = false
 
         let welcomeView = WelcomeView(forceStartFromHero: isReentry) { [weak self] in
             NSAnimationContext.runAnimationGroup { context in
