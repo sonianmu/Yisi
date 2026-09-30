@@ -44,9 +44,9 @@ struct AIHTTPTransport {
         guard !config.model.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             throw AIServiceError.configuration("Enter a model ID.")
         }
-        if messages.contains(where: { $0.content.image != nil }) && !config.capabilities.supportsImages {
-            throw AIServiceError.configuration("This model is not configured for images. Enable image support or choose System OCR.")
-        }
+        // Vision mode is explicit user intent. Provider/model name lists and legacy
+        // capability flags cannot establish whether a newly released model accepts images.
+        // Send the protocol's image payload and let the endpoint report actual support.
         let caps = config.capabilities
         guard caps.outputTokenLimit > 0, caps.outputTokenLimit <= 1_000_000 else {
             throw AIServiceError.configuration("Output token limit must be between 1 and 1000000.")

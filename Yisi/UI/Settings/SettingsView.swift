@@ -542,7 +542,6 @@ struct GeneralSettingsView: View {
 struct AIServiceSettingsView: View {
     @AppStorage(AppDefaults.Keys.imageProcessingStrategy) private var imageStrategy = AppDefaults.imageProcessingStrategy
     @AppStorage(AppDefaults.Keys.applyApiToImageMode) private var sameAPI = AppDefaults.applyApiToImageMode
-    @State private var supportsImages = AIConfigurationStore.resolve().capabilities.supportsImages
 
     var body: some View {
         VStack(alignment: .leading, spacing: 24) {
@@ -559,17 +558,14 @@ struct AIServiceSettingsView: View {
                     HStack {
                         Text("Same API".localized).font(.system(size: 13, design: .serif))
                             .foregroundColor(.secondary).frame(width: 80, alignment: .leading)
-                        ElegantToggle(isOn: $sameAPI).disabled(!supportsImages)
-                        Text(supportsImages ? "Apply text settings to image mode".localized : "This model is not configured for image input".localized)
-                            .font(.system(size: 11)).foregroundColor(.secondary)
+                        ElegantToggle(isOn: $sameAPI)
                     }
+                    Text("Please ensure the selected model supports vision input.".localized)
+                        .font(.system(size: 11)).foregroundColor(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
                     if !sameAPI { AIServiceConfigurationForm(imageConfiguration: true) }
                 }
             }
-        }
-        .onReceive(NotificationCenter.default.publisher(for: UserDefaults.didChangeNotification).receive(on: RunLoop.main)) { _ in
-            supportsImages = AIConfigurationStore.resolve().capabilities.supportsImages
-            if !supportsImages && sameAPI { sameAPI = false }
         }
     }
 }

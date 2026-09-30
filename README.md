@@ -77,7 +77,7 @@ Shortcuts are customizable in Settings > General.
 2. Open **Settings > AI Services**, select a provider, and enter both fields. Model IDs are initially blank; existing saved models are retained.
 3. For another endpoint, choose **Custom Service** and enter its protocol and base URL. Expand **Advanced Adaptation** only if the model needs specific reasoning or request settings.
 4. Click **Test and Save**. A successful response saves the configuration and selects AI Translation. A failed test shows the error and keeps the previous configuration.
-5. For screenshots, choose system OCR or configure an AI vision service in the same way. Reusing the text service requires an image-capable model.
+5. For screenshots, choose system OCR or AI Vision. AI Vision reuses the text service by default; turn off **Same API** to configure a separate service using the same provider list. Ensure the selected model supports vision input. No provider or legacy capability flag disables the switch; unsupported image requests return the service's error.
 
 AI Translation is the default for new configurations. To use macOS translation instead, select **System Translation** in **Settings > Translation**. Without a saved AI key and model, Yisi prompts you to configure the service or switch engines. Existing users' engine selections are retained until a successful service save.
 
@@ -177,7 +177,7 @@ swift build -c release
 To create a universal installer for Apple Silicon and Intel:
 
 ```bash
-VERSION=1.3.0 ./scripts/build_dmg.sh
+VERSION=1.3.1 ./scripts/build_dmg.sh
 ```
 
 The script outputs `Yisi.dmg` and `build-app/Release/Yisi.app`. It does not publish a GitHub release or change user data.
@@ -195,8 +195,8 @@ First launch shows onboarding before Settings. The screen recording step request
 | Gemini | Yes | With an image-capable model |
 | OpenAI | Yes | With an image-capable model |
 | Zhipu AI | Yes | With an image-capable model |
-| DeepSeek | Yes | Not offered as a built-in vision template |
-| MiniMax | Yes | Not offered as a built-in vision template |
+| DeepSeek | Yes | With an image-capable model and endpoint |
+| MiniMax | Yes | With an image-capable model and endpoint |
 | Custom Service | Yes | With an image-capable model and endpoint |
 
 Models are entered by the user rather than tied to a fixed model list. Availability and supported features depend on your provider, account, model, and protocol. The thinking toggle uses the model's configured reasoning adapter; expand Advanced Adaptation when necessary. New custom API keys are stored in Keychain. See [model service configuration](docs/model-services.md) (Chinese).

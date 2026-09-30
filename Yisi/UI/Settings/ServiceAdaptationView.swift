@@ -75,8 +75,7 @@ struct AIServiceConfigurationForm: View {
     }
 
     private var providerOptions: [String] {
-        imageConfiguration ? ["Gemini", "OpenAI", "Zhipu AI", "Custom Service"] :
-            ["Gemini", "OpenAI", "Zhipu AI", "MiniMax", "DeepSeek", "Custom Service"]
+        ["Gemini", "OpenAI", "Zhipu AI", "MiniMax", "DeepSeek", "Custom Service"]
     }
 
     private func testAndSave() {
@@ -125,7 +124,6 @@ struct CapabilityEditor: View {
                     if capabilities.reasoning == .geminiBudget {
                         integerRow("Minimum Budget", value: $capabilities.minimumThinkingBudget)
                     }
-                    adaptationRow("Image Support") { ElegantToggle(isOn: $capabilities.supportsImages) }
                     adaptationRow("Temperature") { ElegantToggle(isOn: $capabilities.supportsTemperature) }
                     if capabilities.supportsTemperature && capabilities.reasoning != .unsupported {
                         adaptationRow("Temperature During Reasoning") {

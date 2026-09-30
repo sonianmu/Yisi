@@ -21,6 +21,24 @@ final class AIServiceDraftTests: XCTestCase {
         XCTAssertEqual(AIServiceDraft.load(image: false, provider: .openai, defaults: defaults).model, "old-user-model")
     }
 
+    @MainActor func testIndependentVisionConfigurationAcceptsEveryBuiltInProvider() async throws {
+        for provider in [APIProvider.openai, .gemini, .zhipu, .minimax, .deepseek] {
+            var draft = AIServiceDraft.load(image: true, provider: provider, defaults: defaults)
+            draft.apiKey = "image-key"
+            draft.model = "user-vision-model"
+            _ = try await draft.testAndSave(defaults: defaults, send: { messages, config in
+                XCTAssertNotNil(messages.first?.content.image)
+                _ = try AIHTTPTransport().makeRequest(messages: messages, config: config)
+                return "OK"
+            })
+            defaults.set(false, forKey: AppDefaults.Keys.applyApiToImageMode)
+            let service = AIConfigurationStore.resolve(image: true, defaults: defaults)
+            XCTAssertEqual(service.provider, provider)
+            XCTAssertEqual(service.model, "user-vision-model")
+            XCTAssertEqual(service.apiKey, "image-key")
+        }
+    }
+
     @MainActor func testDraftDoesNotSaveUntilSuccessfulTestThenActivatesAI() async throws {
         defaults.set("old-model", forKey: "openai_model")
         defaults.set("system", forKey: AppDefaults.Keys.translationEngine)

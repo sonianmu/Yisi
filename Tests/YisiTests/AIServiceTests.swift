@@ -127,12 +127,10 @@ final class AIServiceTests: XCTestCase {
         XCTAssertThrowsError(try body(config(caps: caps)))
     }
 
-    func testImagePayloadForAllProtocolsAndTextOnlyRejection() throws {
+    func testImagePayloadForAllProtocolsWithoutCapabilityGate() throws {
         let image = Data([1, 2, 3])
-        XCTAssertThrowsError(try body(config(), image: image))
         for apiProtocol in AIProtocol.allCases {
-            var caps = ModelCapabilities(); caps.supportsImages = true
-            let result = try body(config(apiProtocol, caps: caps), image: image)
+            let result = try body(config(apiProtocol), image: image)
             let json = String(data: try JSONSerialization.data(withJSONObject: result), encoding: .utf8) ?? ""
             XCTAssertTrue(json.contains("AQID"))
             if apiProtocol == .anthropic {
@@ -217,6 +215,30 @@ final class AIServiceTests: XCTestCase {
         let preset = PromptPreset(id: UUID(), name: "test", inputPerception: "text", outputInstruction: "summarize")
         XCTAssertFalse(PresetPromptBuilder().buildSystemPrompt(preset: preset).contains("thinking_process"))
         XCTAssertFalse(CustomPromptBuilder().buildSystemPrompt(inputContext: nil, outputRequirement: nil).contains("thinking_process"))
+    }
+
+    func testVisionDefaultsToTextServiceForEveryBuiltInProviderDespiteLegacyFlags() throws {
+        XCTAssertTrue(AppDefaults.applyApiToImageMode)
+        let name = "YisiTests.\(UUID())"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: name))
+        defer { defaults.removePersistentDomain(forName: name) }
+        defaults.register(defaults: [AppDefaults.Keys.applyApiToImageMode: AppDefaults.applyApiToImageMode])
+        for provider in [APIProvider.openai, .gemini, .zhipu, .minimax, .deepseek] {
+            let template = AIConfigurationStore.presetConnection(provider: provider)
+            defaults.set(provider.rawValue, forKey: "api_provider")
+            defaults.set("new-vision-model", forKey: "\(template.keyPrefix)_model")
+            defaults.set("test-key", forKey: "\(template.keyPrefix)_api_key")
+            var caps = ModelCapabilities()
+            caps.supportsImages = false
+            AIConfigurationStore.saveCapabilities(caps, provider: provider, model: "new-vision-model", image: false, defaults: defaults)
+            let service = AIConfigurationStore.resolve(image: true, defaults: defaults)
+            XCTAssertEqual(service.provider, provider)
+            XCTAssertEqual(service.model, "new-vision-model")
+            XCTAssertEqual(service.apiKey, "test-key")
+            let request = try AIHTTPTransport().makeRequest(messages: [AIMessage(role: .user, text: "Describe", image: Data([1, 2, 3]))],
+                config: service.requestConfig(temperature: 0.1, maxTokens: 1024, deepThinking: false))
+            XCTAssertTrue(String(data: try XCTUnwrap(request.httpBody), encoding: .utf8)?.contains("AQID") == true)
+        }
     }
 
     func testOldSettingsAndImageSelectionRemainIndependent() throws {

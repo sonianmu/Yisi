@@ -265,7 +265,7 @@ class LocalizationManager: ObservableObject {
     ]
     
     private let zhStrings: [String: String] = [
-        "This model is not configured for image input": "当前模型未配置图片输入能力",
+        "Please ensure the selected model supports vision input.": "请确保所选模型具备视觉能力。",
         "Temperature During Reasoning": "推理时发送温度",
         "API key not saved. Save it before using this service.": "密钥尚未保存，使用服务前请点击保存。",
         "Custom Service": "自定义服务",

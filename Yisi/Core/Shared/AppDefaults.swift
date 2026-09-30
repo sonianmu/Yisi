@@ -90,7 +90,7 @@ enum AppDefaults {
 
     // AI Service - Image
     static let imageProcessingStrategy = "ai_vision"
-    static let applyApiToImageMode = false
+    static let applyApiToImageMode = true
     static let imageApiProvider = "Zhipu AI"
     static let imageGeminiModel = ""
     static let imageOpenaiModel = ""
