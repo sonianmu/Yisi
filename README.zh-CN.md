@@ -188,10 +188,10 @@ VERSION=1.3.0 ./scripts/build_dmg.sh
 cd ~/Desktop/Yisi
 ./scripts/fresh-start.sh --close   # 关闭，不清除数据
 ./scripts/fresh-start.sh --start   # 构建并启动，已运行时跳过
-./scripts/fresh-start.sh --new     # 清空状态后重新启动
+./scripts/fresh-start.sh --new     # 关闭并清除全部数据，不构建、不重新启动
 ```
 
-`--new` 会先构建并向 macOS 登记 App、重置 Yisi 的系统授权，再删除配置、密钥、预设、历史、历史截图和学习规则，最后启动。首次运行若系统尚未识别 Bundle ID，会提示并跳过授权重置；其他授权错误会在清理数据前停止。可加 `--keep-keys --keep-permissions` 保留旧版及 Keychain 密钥和系统授权；模型和服务地址仍恢复默认值。任何模式都可加 `--dry-run` 仅预览操作。构建失败不会清理数据。
+`--new` 会关闭 Yisi，删除全部配置、API 密钥（包括 Keychain）、预设、历史数据库与截图、学习规则、修复备份、缓存、日志和 Yisi 的旧沙盒数据，再重置系统授权并退出。它不构建、不重新启动，也不删除 App 或源代码。授权重置失败不会阻止前面的数据清理；脚本会报告失败，应用仍保持关闭。可加 `--keep-keys --keep-permissions` 显式保留密钥和授权；模型与服务地址仍恢复默认。任何模式都可加 `--dry-run` 仅预览操作。清除后需启动时，另行运行 `--start`。
 
 开发 App 位于 `build-app/Debug/Yisi.app`，日志位于 `~/Library/Logs/Yisi/`。脚本启动的开发会话暂停自动更新检查，不修改保存的更新偏好。需要加载新代码时，先 `--close` 再 `--start`。
 

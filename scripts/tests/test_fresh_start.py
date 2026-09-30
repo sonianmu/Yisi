@@ -165,10 +165,12 @@ class FreshStartTests(unittest.TestCase):
             ["lsregister", "-f", str(self.repo / "build-app/Debug/Yisi.app")]
         ])
 
-    def test_new_build_failure_leaves_data_and_permissions_untouched(self):
+    def test_new_does_not_build_or_launch_even_without_a_working_compiler(self):
         result = self.run_script("--new", YISI_SCRIPT_TEST_BUILD_FAIL="1")
-        self.assertNotEqual(result.returncode, 0)
-        self.assertFalse(any(event[0] in ["defaults", "rm", "security", "tccutil", "open"] for event in self.events()))
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertTrue(any(event[0] == "security" for event in self.events()))
+        self.assertFalse(any(event[0] in ["swift", "codesign", "open"] for event in self.events()))
+        self.assertFalse((self.repo / "build-app").exists())
 
     def test_new_preserves_both_key_formats_but_resets_other_preferences(self):
         result = self.run_script("--new", "--keep-keys", "--keep-permissions")
@@ -198,33 +200,62 @@ class FreshStartTests(unittest.TestCase):
         self.assertTrue(any(path.endswith("/Documents/HistoryImages") for path in removed))
         self.assertTrue(any(path.endswith("/Documents/YisiHistory.sqlite") for path in removed))
         self.assertFalse(any(path.startswith("/Applications/") for path in removed))
-        self.assertTrue(any(event[0] == "open" for event in events))
+        self.assertFalse(any(event[0] in ["open", "swift", "codesign"] for event in events))
+        self.assertTrue(any(path.endswith("/Library/Logs/Yisi") for path in removed))
+        self.assertTrue(any(path.endswith("/Library/Containers/com.sonianmu.yisi") for path in removed))
+        self.assertTrue(any(path.endswith("/Library/Application Support/com.sonianmu.yisi") for path in removed))
+        self.assertTrue(any(path.endswith("/Documents/YisiHistory.sqlite-wal") for path in removed))
+        self.assertTrue(any(path.endswith("/Documents/YisiHistory.sqlite-shm") for path in removed))
+        self.assertIn("应用保持关闭", result.stdout)
 
-    def test_app_registration_precedes_permission_reset(self):
+    def test_full_cleanup_removes_script_owned_credential_backups_only(self):
+        backup = self.root / "tmp/yisi-fresh-start.old-backup"
+        backup.mkdir()
+        (backup / "api-keys.plist").write_text("fake abandoned key backup")
+        unrelated = self.root / "tmp/unrelated-app"
+        unrelated.mkdir()
+        result = self.run_script("--new")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertFalse(backup.exists())
+        self.assertTrue(unrelated.exists())
+
+    def test_existing_app_registration_and_reset_follow_data_cleanup(self):
+        app = self.repo / "build-app/Debug/Yisi.app"
+        app.mkdir(parents=True)
+        (app / "marker").write_text("keep app")
         result = self.run_script("--new")
         self.assertEqual(result.returncode, 0, result.stderr)
         events = self.events()
+        self.assertLess(next(i for i, event in enumerate(events) if event[:2] == ["defaults", "delete"]),
+                        next(i for i, event in enumerate(events) if event[0] == "lsregister"))
         self.assertLess(next(i for i, event in enumerate(events) if event[0] == "lsregister"),
                         next(i for i, event in enumerate(events) if event[0] == "tccutil"))
-        self.assertLess(next(i for i, event in enumerate(events) if event[0] == "tccutil"),
-                        next(i for i, event in enumerate(events) if event[:2] == ["defaults", "delete"]))
+        self.assertEqual((app / "marker").read_text(), "keep app")
 
-    def test_first_run_missing_bundle_id_does_not_block_launch(self):
+    def test_missing_bundle_id_does_not_block_cleanup_or_launch_any_app(self):
         result = self.run_script("--new", YISI_SCRIPT_TEST_TCC_MISSING="1")
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("跳过本次系统授权重置", result.stderr)
-        self.assertTrue(any(event[0] == "open" for event in self.events()))
+        self.assertTrue(any(event[0] == "security" for event in self.events()))
+        self.assertFalse(any(event[0] in ["open", "swift"] for event in self.events()))
 
-    def test_other_permission_errors_stop_before_clearing_data(self):
+    def test_permission_errors_are_reported_after_cleanup_and_all_are_attempted(self):
         result = self.run_script("--new", YISI_SCRIPT_TEST_TCC_FAIL="1")
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("Operation not permitted", result.stderr)
-        self.assertFalse(any(event[0] in ["defaults", "rm", "security", "open"] for event in self.events()))
+        self.assertIn("应用数据已清理", result.stderr)
+        self.assertTrue(any(event[0] == "security" for event in self.events()))
+        self.assertEqual(sum(event[0] == "tccutil" for event in self.events()), 4)
+        self.assertFalse(any(event[0] in ["open", "swift"] for event in self.events()))
 
-    def test_registration_failure_stops_before_resetting_or_clearing(self):
+    def test_registration_failure_still_cleans_data_and_attempts_permission_reset(self):
+        (self.repo / "build-app/Debug/Yisi.app").mkdir(parents=True)
         result = self.run_script("--new", YISI_SCRIPT_TEST_REGISTER_FAIL="1")
-        self.assertNotEqual(result.returncode, 0)
-        self.assertFalse(any(event[0] in ["defaults", "rm", "security", "tccutil", "open"] for event in self.events()))
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("登记失败", result.stderr)
+        self.assertTrue(any(event[0] == "security" for event in self.events()))
+        self.assertTrue(any(event[0] == "tccutil" for event in self.events()))
+        self.assertFalse(any(event[0] in ["swift", "open"] for event in self.events()))
 
 
 if __name__ == "__main__":

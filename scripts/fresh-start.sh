@@ -20,13 +20,13 @@ KEYS_NEED_RESTORE=0
 
 usage() {
     cat <<'USAGE'
-Yisi 三档启动脚本
+Yisi 三档管理脚本
 
 用法：./scripts/fresh-start.sh <模式> [选项]
 
   --close   关闭 Yisi，不清除数据
   --start   构建并启动；已在运行时跳过构建和重复启动
-  --new     关闭 → 构建并登记 → 重置授权 → 清除状态 → 重新启动
+  --new     关闭 → 清除全部数据 → 重置授权 → 退出（不构建、不启动）
 
 --new 可选：
   --keep-keys          保留旧版设置及钥匙串中的 API Key
@@ -36,9 +36,10 @@ Yisi 三档启动脚本
   --dry-run           只显示操作，不构建、不启动、不关闭、不清理
   -h / --help         显示帮助
 
-注意：--new 会删除配置、预设、历史、历史截图和学习规则。
+注意：--new 默认删除全部配置、API 密钥、预设、历史、截图、学习规则、
+修复备份、缓存和日志，并重置系统授权。
 保留密钥不保留模型和服务地址；这些配置仍会恢复默认值。
---new 只有在构建成功后才清理数据，不删除已安装的 App 或源代码。
+--new 不构建、不重新启动，不删除已安装的 App 或源代码。
 USAGE
 }
 
@@ -197,7 +198,7 @@ reset_permissions() {
         return
     fi
     echo "== 重置 Yisi 系统授权 =="
-    local permission output status
+    local permission output status failed=0
     for permission in Accessibility ListenEvent PostEvent ScreenCapture; do
         if [ "$DRY_RUN" = 1 ]; then
             run tccutil reset "$permission" "$BUNDLE_ID"
@@ -209,14 +210,33 @@ reset_permissions() {
                 *"No such bundle identifier \"$BUNDLE_ID\""*)
                     # Launch Services can still take time to resolve a first-run bundle.
                     # Do not turn this known missing-ID condition into a startup failure.
-                    echo "macOS 尚未识别 Yisi 的应用标识，跳过本次系统授权重置并继续启动。" >&2
+                    echo "macOS 尚未识别 Yisi 的应用标识，跳过本次系统授权重置；应用数据已清理，不启动 Yisi。" >&2
                     echo "首次使用时请完成系统授权；若仍有旧授权记录，请在系统设置中检查。" >&2
                     return ;;
                 *)
                     printf '%s\n' "$output" >&2
-                    echo "无法重置 $permission 授权（退出码 ${status}）；数据尚未清理，已停止重置。" >&2
-                    return 1 ;;
+                    echo "无法重置 $permission 授权（退出码 ${status}）；应用数据已清理，继续处理其他授权。" >&2
+                    failed=1 ;;
             esac
+        fi
+    done
+    return "$failed"
+}
+
+register_existing_app() {
+    local candidate
+    # Resolve an existing bundle only; cleanup must not require a compiler.
+    for candidate in "$APP_BUNDLE" "$REPO/build-app/Release/Yisi.app" \
+        "/Applications/Yisi.app" "$HOME/Applications/Yisi.app" "$LEGACY_APP_BUNDLE"; do
+        if [ -d "$candidate" ]; then
+            if [ "$DRY_RUN" = 1 ]; then
+                run "$LSREGISTER" -f "$candidate"
+            elif [ -x "$LSREGISTER" ]; then
+                if ! "$LSREGISTER" -f "$candidate"; then
+                    echo "现有 App 登记失败，仍会尝试按应用标识重置授权。" >&2
+                fi
+            fi
+            return
         fi
     done
 }
@@ -260,7 +280,7 @@ SWIFT
 wipe_state() {
     echo "== 清除 Yisi 状态（历史、截图、学习规则、预设与配置） =="
     preserve_preference_keys
-    local domain status count=0
+    local domain status count=0 backup
     for domain in "${PREFERENCE_DOMAINS[@]}"; do
         if [ "$DRY_RUN" = 0 ] && [ "$KEEP_KEYS" = 1 ] && [ "$domain" = "$BUNDLE_ID" ]; then
             KEYS_NEED_RESTORE=1
@@ -279,11 +299,13 @@ wipe_state() {
         fi
         run rm -rf -- "$HOME/Library/Caches/$domain" "$HOME/Library/HTTPStorages/$domain" \
             "$HOME/Library/Saved Application State/$domain.savedState" \
-            "$HOME/Library/Application Support/$domain"
+            "$HOME/Library/Application Support/$domain" \
+            "$HOME/Library/Containers/$domain" "$HOME/Library/Group Containers/group.$domain"
     done
     run rm -rf -- "$HOME/Library/Application Support/Yisi" "$HOME/Documents/HistoryImages"
     run rm -f -- "$HOME/Documents/YisiHistory.sqlite" "$HOME/Documents/YisiHistory.sqlite-wal" \
-        "$HOME/Documents/YisiHistory.sqlite-shm" "$LOG_DIR/app.log"
+        "$HOME/Documents/YisiHistory.sqlite-shm"
+    run rm -rf -- "$LOG_DIR"
     if [ "$KEEP_KEYS" = 1 ]; then
         echo "API Key 已保留；模型和服务地址会恢复默认配置。"
     elif [ "$DRY_RUN" = 1 ]; then
@@ -303,6 +325,13 @@ wipe_state() {
             fi
         done
         echo "已删除 $count 个钥匙串项目。"
+    fi
+    # Interrupted --keep-keys runs can leave private exports containing credentials.
+    # Full cleanup also removes these script-owned backups; retention mode keeps them.
+    if [ "$KEEP_KEYS" = 0 ]; then
+        for backup in "${TMPDIR:-/tmp}"/yisi-fresh-start.*; do
+            if [ -d "$backup" ]; then run rm -rf -- "$backup"; fi
+        done
     fi
     echo "状态清理完成。"
 }
@@ -340,13 +369,12 @@ case "$MODE" in
         fi ;;
     new)
         close_app
-        build_app
-        reset_permissions
         wipe_state
-        launch_app
+        if [ "$KEEP_PERMISSIONS" = 0 ]; then register_existing_app; fi
+        reset_permissions
         if [ "$DRY_RUN" = 1 ]; then
             echo "== 演练完成：未修改数据或应用状态 =="
         else
-            echo "== 完成：按全新状态启动 Yisi =="
+            echo "== 完成：Yisi 数据已清除，应用保持关闭 =="
         fi ;;
 esac
