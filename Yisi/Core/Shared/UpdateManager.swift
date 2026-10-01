@@ -14,6 +14,10 @@ class UpdateManager: ObservableObject {
     private let repo = "Yisi"
     private var progressWindow: NSWindow?
     private var updateAlertWindow: NSWindow?
+    private var automaticCheckObserver: NSObjectProtocol?
+    private lazy var automaticScheduler = AutomaticUpdateScheduler { [weak self] in
+        self?.checkForUpdates(silent: true)
+    }
 
     private static let alertedVersionKey = "update_alerted_version"
     private static let alertedForCurrentKey = "update_alerted_for_current"
@@ -32,6 +36,24 @@ class UpdateManager: ObservableObject {
     }
 
     private init() {}
+
+    /// Start once per app session. Preference changes only manage the timer;
+    /// enabling it starts a fresh six-hour interval without an extra immediate check.
+    func startAutomaticChecks() {
+        guard automaticCheckObserver == nil else { return }
+        automaticCheckObserver = NotificationCenter.default.addObserver(
+            forName: UserDefaults.didChangeNotification, object: nil, queue: .main
+        ) { [weak self] _ in
+            self?.automaticScheduler.setEnabled(UserDefaults.standard.bool(forKey: AppDefaults.Keys.autoCheckUpdates))
+        }
+        let enabled = UserDefaults.standard.bool(forKey: AppDefaults.Keys.autoCheckUpdates)
+        automaticScheduler.setEnabled(enabled)
+        if enabled { checkForUpdates(silent: true) }
+    }
+
+    deinit {
+        if let automaticCheckObserver { NotificationCenter.default.removeObserver(automaticCheckObserver) }
+    }
 
     // MARK: - Check
 
@@ -53,6 +75,9 @@ class UpdateManager: ObservableObject {
             DispatchQueue.main.async {
                 guard let self else { return }
                 self.isChecking = false
+                // A request already in flight must not show an automatic alert
+                // after the user switches automatic updates off. Manual checks remain available.
+                guard !silent || UserDefaults.standard.bool(forKey: AppDefaults.Keys.autoCheckUpdates) else { return }
 
                 guard let data,
                       let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],

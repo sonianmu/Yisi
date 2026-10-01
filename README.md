@@ -177,7 +177,7 @@ swift build -c release
 To create a universal installer for Apple Silicon and Intel:
 
 ```bash
-VERSION=1.3.2 ./scripts/build_dmg.sh
+VERSION=1.3.3 ./scripts/build_dmg.sh
 ```
 
 The script outputs `Yisi.dmg` and `build-app/Release/Yisi.app`. It does not publish a GitHub release or change user data.
@@ -202,6 +202,8 @@ First launch shows onboarding before Settings. The screen recording step request
 Models are entered by the user rather than tied to a fixed model list. Availability and supported features depend on your provider, account, model, and protocol. The thinking toggle uses the model's configured reasoning adapter; expand Advanced Adaptation when necessary. New custom API keys are stored in Keychain. See [model service configuration](docs/model-services.md) (Chinese).
 
 ## Updates and Permissions
+
+With **Auto Update** enabled, Yisi checks once at startup and every six hours while running. Enabling the switch starts a new six-hour interval; disabling it stops periodic checks. **Settings > General > Check for Updates** remains available regardless of the switch. Automatic checks notify once per new version rather than repeatedly showing the same update.
 
 On the first launch after an update, Yisi checks the version and signing identity. It refreshes only permissions unavailable to the running app, including during the initial migration from an older version. Valid grants are preserved even when the signature changes. Users do not need to click Software Repair first. API keys, service settings, and history are retained; recorded attempts prevent repeated resets on ordinary restarts.
 

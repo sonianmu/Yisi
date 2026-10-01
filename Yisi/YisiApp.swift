@@ -143,9 +143,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             }
         }
 
-        if UserDefaults.standard.bool(forKey: AppDefaults.Keys.autoCheckUpdates) {
-            UpdateManager.shared.checkForUpdates(silent: true)
-        }
+        UpdateManager.shared.startAutomaticChecks()
     }
 
     private func setupMainMenu() {
