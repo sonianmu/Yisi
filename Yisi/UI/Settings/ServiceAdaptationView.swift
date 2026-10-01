@@ -2,75 +2,72 @@ import SwiftUI
 
 struct AIServiceConfigurationForm: View {
     let imageConfiguration: Bool
-    @State private var draft: AIServiceDraft
-    @State private var testing = false
-    @State private var status = ""
-    @State private var succeeded = false
+    @StateObject private var form: AIServiceFormModel
     @State private var task: Task<Void, Never>?
 
-    init(imageConfiguration: Bool = false) {
+    init(imageConfiguration: Bool = false, form: AIServiceFormModel? = nil) {
         self.imageConfiguration = imageConfiguration
-        _draft = State(initialValue: AIServiceDraft.load(image: imageConfiguration))
+        _form = StateObject(wrappedValue: form ?? AIServiceFormModel(draft: AIServiceDraft.load(image: imageConfiguration)))
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             VStack(alignment: .leading, spacing: 10) {
                 adaptationRow("Provider") {
-                    CustomDropdown(selection: Binding(get: { draft.provider.rawValue }, set: { raw in
+                    CustomDropdown(selection: Binding(get: { form.draft.provider.rawValue }, set: { raw in
                         if let provider = APIProvider(rawValue: raw) {
-                            draft = AIServiceDraft.load(image: imageConfiguration, provider: provider)
-                            status = ""
+                            form.draft = AIServiceDraft.load(image: imageConfiguration, provider: provider)
+                            form.clearStatus()
                         }
                     }), options: providerOptions, displayNames: providerOptions.map { $0.localized })
                 }
-                if draft.provider == .custom {
+                if form.draft.provider == .custom {
                     adaptationRow("Protocol") {
-                        CustomDropdown(selection: Binding(get: { draft.apiProtocol.rawValue }, set: { raw in
+                        CustomDropdown(selection: Binding(get: { form.draft.apiProtocol.rawValue }, set: { raw in
                             if let value = AIProtocol(rawValue: raw) {
-                                draft.apiProtocol = value
-                                draft.capabilities = ModelCapabilities()
-                                draft.capabilities.supportsImages = imageConfiguration
+                                form.draft.apiProtocol = value
+                                form.draft.capabilities = ModelCapabilities()
+                                form.draft.capabilities.supportsImages = imageConfiguration
                             }
                         }), options: AIProtocol.allCases.map(\.rawValue), displayNames: AIProtocol.allCases.map { $0.rawValue.localized })
                     }
-                    APIKeyInput(label: "Base URL".localized, text: $draft.baseURL, placeholder: "https://example.com/v1", isSecure: false)
+                    APIKeyInput(label: "Base URL".localized, text: $form.draft.baseURL, placeholder: "https://example.com/v1", isSecure: false)
                 }
-                APIKeyInput(label: "API Key".localized, text: $draft.apiKey, placeholder: "Enter an API key.".localized)
-                APIKeyInput(label: "Model".localized, text: $draft.model, placeholder: "Enter any model ID".localized, isSecure: false)
+                APIKeyInput(label: "API Key".localized, text: $form.draft.apiKey, placeholder: "Enter an API key.".localized)
+                APIKeyInput(label: "Model".localized, text: $form.draft.model, placeholder: "Enter any model ID".localized, isSecure: false)
                 Divider().opacity(0.2)
-                adaptationRow("Deep Thinking Preference") { ElegantToggle(isOn: $draft.deepThinking) }
-                CapabilityEditor(capabilities: $draft.capabilities, apiProtocol: draft.apiProtocol)
+                adaptationRow("Deep Thinking Preference") { ElegantToggle(isOn: $form.draft.deepThinking) }
+                CapabilityEditor(capabilities: $form.draft.capabilities, apiProtocol: form.draft.apiProtocol)
             }
-            .disabled(testing)
+            .disabled(form.testing)
             HStack(spacing: 10) {
                 Button("Test and Save".localized, action: testAndSave)
                     .buttonStyle(.plain)
                     .foregroundColor(AppColors.primary)
-                    .disabled(testing)
-                if testing { ProgressView().controlSize(.small) }
+                    .disabled(form.testing)
+                if form.testing { ProgressView().controlSize(.small) }
             }
             .font(.system(size: 12))
-            if !status.isEmpty {
-                Text(status)
+            if !form.status.isEmpty {
+                Text(form.status)
                     .font(.system(size: 11))
-                    .foregroundColor(succeeded ? .secondary : .red)
+                    .foregroundColor(form.succeeded ? .secondary : .red)
                     .textSelection(.enabled)
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
-        .onChange(of: draft.model) { _, model in
-            if draft.provider != .custom {
-                draft.capabilities = AIConfigurationStore.capabilities(provider: draft.provider, model: model,
+        .onChange(of: form.draft.model) { _, model in
+            if form.draft.provider != .custom {
+                form.draft.capabilities = AIConfigurationStore.capabilities(provider: form.draft.provider, model: model,
                                                                         image: imageConfiguration)
-                if imageConfiguration { draft.capabilities.supportsImages = true }
+                if imageConfiguration { form.draft.capabilities.supportsImages = true }
             }
-            status = ""
+            form.clearStatus()
         }
-        .onChange(of: draft.apiKey) { _, _ in status = "" }
-        .onChange(of: draft.baseURL) { _, _ in status = "" }
-        .onChange(of: draft.capabilities) { _, _ in status = "" }
-        .onChange(of: draft.deepThinking) { _, _ in status = "" }
+        .onChange(of: form.draft.apiKey) { _, _ in form.clearStatus() }
+        .onChange(of: form.draft.baseURL) { _, _ in form.clearStatus() }
+        .onChange(of: form.draft.capabilities) { _, _ in form.clearStatus() }
+        .onChange(of: form.draft.deepThinking) { _, _ in form.clearStatus() }
         .onDisappear { task?.cancel() }
     }
 
@@ -79,21 +76,9 @@ struct AIServiceConfigurationForm: View {
     }
 
     private func testAndSave() {
-        guard !testing else { return }
-        let submitted = draft
-        testing = true
-        status = ""
+        guard !form.testing else { return }
         task = Task { @MainActor in
-            defer { testing = false }
-            do {
-                let response = try await submitted.testAndSave()
-                succeeded = true
-                status = "Connection successful. Settings saved.".localized + "\n" + String(response.prefix(160))
-            } catch {
-                guard !Task.isCancelled else { return }
-                succeeded = false
-                status = "Test failed. Previous settings were kept.".localized + "\n" + error.localizedDescription
-            }
+            _ = await form.testAndSave()
         }
     }
 }

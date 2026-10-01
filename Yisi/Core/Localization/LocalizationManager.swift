@@ -341,6 +341,7 @@ class LocalizationManager: ObservableObject {
         "Select. Translate. Keep your flow.": "选中，即刻呈现。",
         "Translate selected text or screenshots, without leaving what you are doing.": "翻译选中文字与截图，让灵感和工作继续。",
         "Enter your API key and model, then test and save. You can also configure this later in Settings.": "填写 API 密钥和模型后，点击测试并保存。也可以稍后在设置中配置。",
+        "Enter your API key and model. Next will test and save before continuing. You can also configure this later in Settings.": "填写 API 密钥和模型后，下一步会先测试并保存。也可以稍后在设置中配置。",
         "Set up later": "稍后配置",
         "You are ready.": "一切就绪。",
         "Yisi is in your menu bar. Select text or take a screenshot to begin.": "Yisi 已在菜单栏等候。选中文字，或截取画面，即可开始。",

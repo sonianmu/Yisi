@@ -81,6 +81,8 @@ Shortcuts are customizable in Settings > General.
 
 AI Translation is the default for new configurations. To use macOS translation instead, select **System Translation** in **Settings > Translation**. Without a saved AI key and model, Yisi prompts you to configure the service or switch engines. Existing users' engine selections are retained until a successful service save.
 
+In the welcome page, **Next** tests and saves the entered AI configuration before advancing to permissions. Failed tests keep your input on the same page; **Set up later** explicitly skips configuration. Navigation is disabled while a test is running. A configuration already saved successfully can proceed without another test.
+
 ---
 
 ## Installation Troubleshooting

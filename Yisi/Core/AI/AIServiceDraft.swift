@@ -1,6 +1,6 @@
 import Foundation
 
-struct AIServiceDraft {
+struct AIServiceDraft: Equatable {
     var provider: APIProvider
     var apiKey: String
     var model: String

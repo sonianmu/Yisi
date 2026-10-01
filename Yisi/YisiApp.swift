@@ -412,6 +412,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             } completionHandler: { [weak self] in
                 window.close()
                 self?.welcomeWindow = nil
+                // Reentry may have hidden an existing settings view with an older API draft.
+                // Recreate it from the saved configuration before showing it again.
+                if let settingsWindow = self?.settingsWindow {
+                    settingsWindow.contentView = NSHostingView(rootView: SettingsView())
+                }
                 self?.toggleSettings()
             }
         }

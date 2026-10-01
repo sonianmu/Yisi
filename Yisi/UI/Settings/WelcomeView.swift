@@ -13,6 +13,8 @@ struct WelcomeView: View {
     @State private var relaunching = false
     @State private var requestedAccessibility = false
     @State private var finishingWelcome = false
+    @StateObject private var aiServiceForm = AIServiceFormModel(draft: AIServiceDraft.load(image: false))
+    @State private var saveTask: Task<Void, Never>?
 
     var onComplete: () -> Void
     private let tracksProgress: Bool
@@ -64,7 +66,10 @@ struct WelcomeView: View {
                 pulsing = true
             }
         }
-        .onDisappear { timer?.invalidate() }
+        .onDisappear {
+            timer?.invalidate()
+            saveTask?.cancel()
+        }
         .onChange(of: currentStep) { _, step in
             if tracksProgress {
                 UserDefaults.standard.set(step, forKey: AppDefaults.Keys.welcomeStep)
@@ -128,19 +133,26 @@ struct WelcomeView: View {
             Text("AI Service".localized)
                 .font(.system(size: 24, weight: .medium, design: .serif))
                 .padding(.top, 26)
-            Text("Enter your API key and model, then test and save. You can also configure this later in Settings.".localized)
+            Text("Enter your API key and model. Next will test and save before continuing. You can also configure this later in Settings.".localized)
                 .font(.system(size: 12)).foregroundColor(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
             ScrollView {
-                AIServiceConfigurationForm().padding(.vertical, 4)
+                AIServiceConfigurationForm(form: aiServiceForm).padding(.vertical, 4)
             }
             .scrollIndicators(.hidden)
             HStack {
                 Button("Set up later".localized) { withAnimation { currentStep = 2 } }
                     .buttonStyle(.plain).foregroundColor(.secondary)
+                    .disabled(aiServiceForm.testing)
                 Spacer()
-                Button("Next".localized) { withAnimation { currentStep = 2 } }
+                Button("Next".localized) {
+                    saveTask = Task { @MainActor in
+                        guard await aiServiceForm.testAndSave(reuseSaved: true), !Task.isCancelled else { return }
+                        withAnimation { currentStep = 2 }
+                    }
+                }
                     .buttonStyle(.plain).foregroundColor(AppColors.primary)
+                    .disabled(aiServiceForm.testing)
             }
             .font(.system(size: 13)).padding(.bottom, 30)
         }
