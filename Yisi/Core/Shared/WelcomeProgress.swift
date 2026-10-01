@@ -9,6 +9,20 @@ enum WelcomeProgress {
     }
 
     static func shouldOpenHome(savedStep: Int, accessibilityGranted: Bool, screenCaptureGranted: Bool) -> Bool {
-        savedStep >= 3 && accessibilityGranted && screenCaptureGranted
+        savedStep >= 2 && accessibilityGranted && screenCaptureGranted
     }
+
+    enum PermissionAction: Equatable {
+        case none, screenRecording, ready, home, restart
+    }
+
+    static func permissionAction(step: Int, accessibility: Bool, screenCapture: Bool,
+                                 previouslyScreenCapture: Bool, recovering: Bool) -> PermissionAction {
+        guard step == 2 || step == 3 else { return .none }
+        if step == 3 && !previouslyScreenCapture && screenCapture { return .restart }
+        guard accessibility else { return .none }
+        if screenCapture { return recovering ? .home : .ready }
+        return step == 2 ? .screenRecording : .none
+    }
+
 }

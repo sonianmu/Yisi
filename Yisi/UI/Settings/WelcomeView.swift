@@ -11,6 +11,8 @@ struct WelcomeView: View {
     @State private var pulsing = false
     @State private var requestingScreenCapture = false
     @State private var relaunching = false
+    @State private var requestedAccessibility = false
+    @State private var finishingWelcome = false
 
     var onComplete: () -> Void
     private let tracksProgress: Bool
@@ -179,8 +181,7 @@ struct WelcomeView: View {
                 if accessibilityGranted {
                     withAnimation { currentStep = 3 }
                 } else {
-                    let opts: NSDictionary = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true]
-                    AXIsProcessTrustedWithOptions(opts)
+                    requestAccessibilityPermission(openSettings: true)
                 }
             }) {
                 Text(accessibilityGranted ? "Next".localized : "Enable".localized)
@@ -206,6 +207,21 @@ struct WelcomeView: View {
             .padding(.horizontal, 52)
             .padding(.bottom, 36)
             .animation(.easeInOut(duration: 0.4), value: accessibilityGranted)
+            if !accessibilityGranted {
+                Button("Show App in Finder".localized) {
+                    NSWorkspace.shared.selectFile(Bundle.main.bundlePath, inFileViewerRootedAtPath: "")
+                }
+                .buttonStyle(.plain)
+                .font(.system(size: 11)).foregroundColor(AppColors.primary)
+                .padding(.bottom, 18)
+            }
+        }
+        .task {
+            // Let a grant from System Settings settle before requesting again.
+            do { try await Task.sleep(for: .milliseconds(600)) } catch { return }
+            guard currentStep == 2, !finishingWelcome else { return }
+            refreshAuthorization()
+            if !accessibilityGranted { requestAccessibilityPermission(openSettings: false) }
         }
     }
 
@@ -341,18 +357,57 @@ struct WelcomeView: View {
         }
     }
 
+    private func requestAccessibilityPermission(openSettings: Bool) {
+        if tracksProgress {
+            UserDefaults.standard.set(2, forKey: AppDefaults.Keys.welcomeStep)
+            UserDefaults.standard.synchronize()
+        }
+        if !AXIsProcessTrusted() && !requestedAccessibility {
+            requestedAccessibility = true
+            let options: NSDictionary = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true]
+            // The prompt registers this running app with TCC, not just LaunchServices.
+            // Its asynchronous result is handled by polling, never by resetting again.
+            _ = AXIsProcessTrustedWithOptions(options)
+            NSLog("Yisi requesting accessibility: path=%@", Bundle.main.bundlePath)
+        }
+        refreshAuthorization()
+        if openSettings && !accessibilityGranted,
+           let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") {
+            NSWorkspace.shared.open(url)
+        }
+    }
+
     private func startPolling() {
         timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in
-            let newAcc = AXIsProcessTrusted()
-            let newScr = CGPreflightScreenCaptureAccess()
+            refreshAuthorization()
+        }
+    }
 
-            if currentStep == 3 && !screenCaptureGranted && newScr {
-                relaunchApp()
-                return
-            }
-
-            accessibilityGranted = newAcc
-            screenCaptureGranted = newScr
+    private func refreshAuthorization() {
+        guard !relaunching, !finishingWelcome else { return }
+        let newAcc = AXIsProcessTrusted()
+        let newScr = CGPreflightScreenCaptureAccess()
+        if newAcc != accessibilityGranted || newScr != screenCaptureGranted {
+            NSLog("Yisi authorization changed: path=%@ step=%ld accessibility=%d screenCapture=%d",
+                  Bundle.main.bundlePath, currentStep, newAcc ? 1 : 0, newScr ? 1 : 0)
+        }
+        let action = WelcomeProgress.permissionAction(step: currentStep, accessibility: newAcc,
+            screenCapture: newScr, previouslyScreenCapture: screenCaptureGranted,
+            recovering: tracksProgress && UserDefaults.standard.bool(forKey: AppDefaults.Keys.welcomeCompleted))
+        accessibilityGranted = newAcc
+        screenCaptureGranted = newScr
+        switch action {
+        case .none: break
+        case .screenRecording: withAnimation { currentStep = 3 }
+        case .ready: withAnimation { currentStep = 4 }
+        case .restart: relaunchApp()
+        case .home:
+            finishingWelcome = true
+            timer?.invalidate()
+            UserDefaults.standard.set(3, forKey: AppDefaults.Keys.welcomeStep)
+            PermissionMigration.completeAuthorization(defaults: .standard)
+            UserDefaults.standard.synchronize()
+            onComplete()
         }
     }
 

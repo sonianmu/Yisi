@@ -72,7 +72,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let path = Bundle.main.bundlePath
         Task { @MainActor in
             let failures = await Task.detached(priority: .userInitiated) {
-                PermissionReset.perform(services: plan.services, bundleID: "com.sonianmu.yisi", appPath: path)
+                PermissionReset.perform(services: plan.services, bundleID: "com.sonianmu.yisi", appPath: path,
+                    isGranted: { service in
+                        service == "Accessibility" ? AXIsProcessTrusted() : CGPreflightScreenCaptureAccess()
+                    })
             }.value
             PermissionMigration.finish(plan, failures: failures, defaults: defaults)
             NSLog("Yisi update permission migration: attempted=%@ failed=%@", plan.services.joined(separator: ","), failures.joined(separator: ","))

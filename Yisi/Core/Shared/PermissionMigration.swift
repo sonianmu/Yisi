@@ -47,16 +47,14 @@ enum PermissionMigration {
         let previous = state(defaults: defaults)
         // A recorded attempt, including failure, is never repeated on ordinary launches.
         guard previous?.identity != identity else { return Plan(identity: identity, services: []) }
-        let changedSignature = previous?.identity.requirement != nil && identity.requirement != nil
-            && previous?.identity.requirement != identity.requirement
-        // Legacy versions have no identity checkpoint. Their ad-hoc permission entries
-        // may appear enabled but still refer to the old executable's code hash.
-        let legacyAdHoc = previous == nil && existingUser && (identity.requirement?.contains("cdhash") == true)
+        // Trust APIs describe this running executable, while Settings can display
+        // a stale enabled entry. Never revoke a grant already valid for this process,
+        // even if the version, signature, or copy of the app changed.
         let updating = previous != nil || existingUser
         var services: [String] = []
         if updating {
-            if changedSignature || legacyAdHoc || !accessibility { services.append("Accessibility") }
-            if changedSignature || legacyAdHoc || !screenCapture { services.append("ScreenCapture") }
+            if !accessibility { services.append("Accessibility") }
+            if !screenCapture { services.append("ScreenCapture") }
         }
         return Plan(identity: identity, services: services)
     }
@@ -112,12 +110,17 @@ enum PermissionReset {
     }
 
     static func perform(services: [String], bundleID: String, appPath: String,
+                        isGranted: (String) -> Bool = { _ in false },
                         run: (String, [String]) -> Bool = { run(executable: $0, arguments: $1) }) -> [String] {
         guard bundleID == "com.sonianmu.yisi", appPath.hasSuffix(".app"),
               services.allSatisfy({ ["Accessibility", "ScreenCapture"].contains($0) }) else { return services }
         // A manually replaced bundle may not yet be known to LaunchServices.
         let registered = run("/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister", ["-f", appPath])
         guard registered else { return services }
-        return services.filter { !run("/usr/bin/tccutil", ["reset", $0, bundleID]) }
+        return services.filter { service in
+            // Authorization can change while application registration is running.
+            guard !isGranted(service) else { return false }
+            return !run("/usr/bin/tccutil", ["reset", service, bundleID])
+        }
     }
 }

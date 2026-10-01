@@ -177,7 +177,7 @@ swift build -c release
 To create a universal installer for Apple Silicon and Intel:
 
 ```bash
-VERSION=1.3.1 ./scripts/build_dmg.sh
+VERSION=1.3.2 ./scripts/build_dmg.sh
 ```
 
 The script outputs `Yisi.dmg` and `build-app/Release/Yisi.app`. It does not publish a GitHub release or change user data.
@@ -203,9 +203,9 @@ Models are entered by the user rather than tied to a fixed model list. Availabil
 
 ## Updates and Permissions
 
-On the first launch after an update, Yisi checks the version and signing identity. An ad-hoc signature change, including the initial migration from an older version, automatically refreshes Yisi's Accessibility and Screen Recording permission entries and resumes at the required authorization step. Users do not need to click Software Repair first. API keys, service settings, and history are retained; recorded attempts prevent repeated resets on ordinary restarts.
+On the first launch after an update, Yisi checks the version and signing identity. It refreshes only permissions unavailable to the running app, including during the initial migration from an older version. Valid grants are preserved even when the signature changes. Users do not need to click Software Repair first. API keys, service settings, and history are retained; recorded attempts prevent repeated resets on ordinary restarts.
 
-macOS may still require users to confirm permission. Migration cannot grant authorization silently. Valid permissions are retained when a stable signing identity remains unchanged. Automatic processing failures are reported with a GitHub Issues option.
+macOS may still require users to confirm permission. Migration cannot grant authorization silently. The guide requests Accessibility for the running app and advances automatically once access becomes available; an authorization restart resumes at the remaining permission or opens the home screen. Automatic processing failures are reported with a GitHub Issues option.
 
 ## Software Repair
 

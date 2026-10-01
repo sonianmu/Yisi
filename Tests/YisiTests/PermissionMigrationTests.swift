@@ -29,8 +29,8 @@ final class PermissionMigrationTests: XCTestCase {
         XCTAssertFalse(defaults.bool(forKey: PermissionMigration.pendingKey))
     }
 
-    func testLegacyUpgradeRefreshesStaleEnabledEntriesOnce() throws {
-        let value = plan(new)
+    func testLegacyUpgradeRefreshesDeniedEntriesOnce() throws {
+        let value = plan(new, ax: false, screen: false)
         XCTAssertEqual(value.services, ["Accessibility", "ScreenCapture"])
         try PermissionMigration.checkpoint(value, defaults: defaults, persist: { true })
         XCTAssertEqual(defaults.integer(forKey: AppDefaults.Keys.welcomeStep), 2)
@@ -38,15 +38,24 @@ final class PermissionMigrationTests: XCTestCase {
         XCTAssertTrue(plan(new).services.isEmpty)
     }
 
-    func testSignatureChangeMigratesEvenWhenPreflightReportsGranted() throws {
+    func testLegacyUserNewlyGrantedAccessibilityIsNeverCleared() throws {
+        let value = plan(new, ax: true, screen: false)
+        XCTAssertEqual(value.services, ["ScreenCapture"])
+        try PermissionMigration.checkpoint(value, defaults: defaults, persist: { true })
+        XCTAssertTrue(plan(new, ax: true, screen: false).services.isEmpty)
+    }
+
+    func testSignatureChangePreservesAlreadyGrantedPermissions() throws {
         try seed(old)
-        XCTAssertEqual(plan(new).services, ["Accessibility", "ScreenCapture"])
+        XCTAssertTrue(plan(new).services.isEmpty)
+        XCTAssertEqual(plan(new, screen: false).services, ["ScreenCapture"])
     }
 
     func testSameVersionRebuildDetectsNewSignature() throws {
         try seed(new)
         let rebuilt = PermissionMigration.Identity(version: "1.3.0", requirement: "cdhash REBUILD")
-        XCTAssertEqual(plan(rebuilt).services.count, 2)
+        XCTAssertTrue(plan(rebuilt).services.isEmpty)
+        XCTAssertEqual(plan(rebuilt, ax: false, screen: false).services.count, 2)
     }
 
     func testStableSignatureUpgradeKeepsValidGrantsAndOnlyResetsMissingOnes() throws {
@@ -58,7 +67,7 @@ final class PermissionMigrationTests: XCTestCase {
     }
 
     func testFailureAndCrashCheckpointNeverCauseRestartLoop() throws {
-        let value = plan(new)
+        let value = plan(new, ax: false, screen: false)
         try PermissionMigration.checkpoint(value, defaults: defaults, persist: { true })
         XCTAssertTrue(plan(new, ax: false, screen: false).services.isEmpty)
         PermissionMigration.finish(value, failures: value.services, defaults: defaults)
@@ -70,7 +79,7 @@ final class PermissionMigrationTests: XCTestCase {
     func testCheckpointFailureRestoresStateBeforeAnyReset() throws {
         try seed(old)
         defaults.set(1, forKey: AppDefaults.Keys.welcomeStep)
-        XCTAssertThrowsError(try PermissionMigration.checkpoint(plan(new), defaults: defaults, persist: { false }))
+        XCTAssertThrowsError(try PermissionMigration.checkpoint(plan(new, ax: false, screen: false), defaults: defaults, persist: { false }))
         XCTAssertEqual(PermissionMigration.state(defaults: defaults)?.identity, old)
         XCTAssertEqual(defaults.integer(forKey: AppDefaults.Keys.welcomeStep), 1)
         XCTAssertNil(defaults.object(forKey: PermissionMigration.pendingKey))
@@ -81,8 +90,9 @@ final class PermissionMigrationTests: XCTestCase {
             "custom_ai_service": "config", "saved_presets": "presets", "translation_engine": "system",
             "history_path": "/Users/example/history.sqlite", "unknown_preference": 42]
         protected.forEach { defaults.set($0.value, forKey: $0.key) }
-        try PermissionMigration.checkpoint(plan(new), defaults: defaults, persist: { true })
-        PermissionMigration.finish(plan(new), failures: [], defaults: defaults)
+        let migration = plan(new, ax: false, screen: false)
+        try PermissionMigration.checkpoint(migration, defaults: defaults, persist: { true })
+        PermissionMigration.finish(migration, failures: [], defaults: defaults)
         PermissionMigration.completeAuthorization(defaults: defaults)
         for (key, value) in protected {
             XCTAssertEqual(defaults.object(forKey: key) as? NSObject, value as? NSObject)
@@ -108,5 +118,17 @@ final class PermissionMigrationTests: XCTestCase {
         XCTAssertEqual(result, ["Accessibility"])
         _ = PermissionReset.perform(services: ["All"], bundleID: "other.app", appPath: "/Applications/Yisi.app") { _, _ in resets += 1; return true }
         XCTAssertEqual(resets, 0)
+    }
+
+    func testGrantBecomingAvailableDuringRegistrationIsNotReset() {
+        var resets: [[String]] = []
+        let failures = PermissionReset.perform(services: ["Accessibility", "ScreenCapture"],
+            bundleID: "com.sonianmu.yisi", appPath: "/Applications/Yisi.app",
+            isGranted: { $0 == "Accessibility" }) { _, arguments in
+                if arguments.first == "reset" { resets.append(arguments) }
+                return true
+            }
+        XCTAssertTrue(failures.isEmpty)
+        XCTAssertEqual(resets, [["reset", "ScreenCapture", "com.sonianmu.yisi"]])
     }
 }
