@@ -208,6 +208,7 @@ echo "Mounted device ${DEVICE} at ${MOUNT_DIR}"
 sleep 2
 
 # Style the DMG window via AppleScript
+if [ "${SKIP_DMG_STYLING:-0}" != "1" ]; then
 osascript <<APPLESCRIPT || echo "Warning: AppleScript styling partially failed, continuing..."
 tell application "Finder"
     tell disk "${APP_NAME}"
@@ -233,6 +234,7 @@ tell application "Finder"
     end tell
 end tell
 APPLESCRIPT
+fi
 
 sync
 sleep 2

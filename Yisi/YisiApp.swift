@@ -44,6 +44,18 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             object: nil
         )
 
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("--preview-popup") || ProcessInfo.processInfo.arguments.contains("--preview-appearance") {
+            checkingUpdatePermissions = false
+            if ProcessInfo.processInfo.arguments.contains("--preview-appearance") {
+                openSettingsConfig()
+            } else {
+                WindowManager.shared.show(text: "")
+            }
+            return
+        }
+        #endif
+
         migrateUpdatePermissions()
     }
 

@@ -1,22 +1,51 @@
 import SwiftUI
+import Observation
+
+@Observable
+final class ThemePalette {
+    static let shared = ThemePalette()
+
+    var accentColorHex: String {
+        didSet { UserDefaults.standard.set(accentColorHex, forKey: AppDefaults.Keys.accentColorHex) }
+    }
+
+    private init() {
+        accentColorHex = UserDefaults.standard.string(forKey: AppDefaults.Keys.accentColorHex) ?? AppDefaults.accentColorHex
+    }
+}
 
 struct AppColors {
     // Core Palette (Dynamic)
-    static let yisiPurple = Color(dynamicProvider: { appearance in
-        appearance.isDarkMode ? Color(hex: "9D9AC6") : Color(hex: "555386") // Lightened for Dark Mode
-    })
+    static var yisiPurple: Color { accentColor(light: "555386", dark: "9D9AC6", lightBlend: 0.12, darkBlend: 0.3) }
     
-    static let yisiDeep = Color(dynamicProvider: { appearance in
-        appearance.isDarkMode ? Color(hex: "6A6896") : Color(hex: "413F6B")
-    })
+    static var yisiDeep: Color { accentColor(light: "413F6B", dark: "6A6896", lightBlend: 0.25, darkBlend: 0.1) }
     
-    static let yisiLight = Color(dynamicProvider: { appearance in
-        appearance.isDarkMode ? Color(hex: "B0AED6") : Color(hex: "7A78AD")
-    })
+    static var yisiLight: Color { accentColor(light: "7A78AD", dark: "B0AED6", lightBlend: -0.2, darkBlend: 0.45) }
+
+    private static func accentColor(light: String, dark: String, lightBlend: Double, darkBlend: Double) -> Color {
+        let customHex = ThemePalette.shared.accentColorHex
+        return Color(dynamicProvider: { appearance in
+            guard !customHex.isEmpty else {
+                return Color(hex: appearance.isDarkMode ? dark : light)
+            }
+            let base = NSColor(Color(hex: customHex))
+            let fraction = appearance.isDarkMode ? darkBlend : lightBlend
+            let blend = appearance.isDarkMode || fraction < 0 ? NSColor.white : NSColor.black
+            return Color(nsColor: base.blended(withFraction: abs(fraction), of: blend) ?? base)
+        })
+    }
     
-    static let mist = Color(dynamicProvider: { appearance in
-        appearance.isDarkMode ? Color(hex: "2A2836") : Color(hex: "EBEAF5") // Darker background for Dark Mode
-    })
+    static var mist: Color {
+        let customHex = ThemePalette.shared.accentColorHex
+        return Color(dynamicProvider: { appearance in
+            guard !customHex.isEmpty else {
+                return Color(hex: appearance.isDarkMode ? "2A2836" : "EBEAF5")
+            }
+            let base = NSColor(Color(hex: customHex))
+            return Color(nsColor: base.blended(withFraction: appearance.isDarkMode ? 0.82 : 0.92,
+                                               of: appearance.isDarkMode ? .black : .white) ?? base)
+        })
+    }
     
     static let inkMain = Color(dynamicProvider: { appearance in
         appearance.isDarkMode ? Color(hex: "E6E5EB") : Color(hex: "1F1E2E") // Softened White for Dark Mode
@@ -32,11 +61,11 @@ struct AppColors {
     })
     
     // Semantic Mapping
-    static let primary = yisiPurple
-    static let secondary = yisiLight
-    static let background = mist
+    static var primary: Color { yisiPurple }
+    static var secondary: Color { yisiLight }
+    static var background: Color { mist }
     static let text = inkMain
-    static let selection = mist
+    static var selection: Color { mist }
 }
 
 extension NSAppearance {
@@ -49,6 +78,12 @@ extension NSAppearance {
 }
 
 extension Color {
+    var rgbHex: String? {
+        guard let color = NSColor(self).usingColorSpace(.sRGB) else { return nil }
+        return String(format: "%02X%02X%02X", Int((color.redComponent * 255).rounded()),
+                      Int((color.greenComponent * 255).rounded()), Int((color.blueComponent * 255).rounded()))
+    }
+
     init(dynamicProvider: @escaping (NSAppearance) -> Color) {
         self = Color(nsColor: NSColor(name: nil, dynamicProvider: { appearance in
             let swiftUIColor = dynamicProvider(appearance)

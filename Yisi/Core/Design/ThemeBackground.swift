@@ -1,6 +1,12 @@
 import SwiftUI
 
 struct ThemeBackground: View {
+    var body: some View {
+        GlassBackground()
+    }
+}
+
+struct ClassicThemeBackground: View {
     @Environment(\.colorScheme) var colorScheme
     
     var body: some View {
@@ -10,8 +16,6 @@ struct ThemeBackground: View {
                 // Clean, matte, solid background. No purple, no shine.
                 Color(hex: "1C1C1E")
                     .edgesIgnoringSafeArea(.all)
-                
-                // Subtle clean border for structure
                 RoundedRectangle(cornerRadius: 12)
                     .strokeBorder(Color.white.opacity(0.1), lineWidth: 0.5)
             } else {
@@ -52,8 +56,6 @@ struct ThemeBackground: View {
                     startRadius: 0,
                     endRadius: 400
                 )
-                
-                // 4. Border/Stroke Effect
                 RoundedRectangle(cornerRadius: 12)
                     .strokeBorder(
                         LinearGradient(

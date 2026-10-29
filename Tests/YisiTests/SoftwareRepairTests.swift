@@ -20,6 +20,9 @@ final class SoftwareRepairTests: XCTestCase {
 
     private func seed() {
         defaults.set("broken-theme", forKey: AppDefaults.Keys.appTheme)
+        defaults.set("24706A", forKey: AppDefaults.Keys.accentColorHex)
+        defaults.set("24706A", forKey: AppDefaults.Keys.popupTintHex)
+        defaults.set(0.15, forKey: AppDefaults.Keys.popupTintStrength)
         defaults.set(999, forKey: AppDefaults.Keys.globalShortcutKey)
         defaults.set("fake-test-key", forKey: AppDefaults.Keys.openaiApiKey)
         defaults.set("fake-image-key", forKey: AppDefaults.Keys.imageGeminiApiKey)
@@ -70,6 +73,10 @@ final class SoftwareRepairTests: XCTestCase {
         let path = receipt.backupURL.appendingPathComponent("preferences.plist")
         let snapshot = try XCTUnwrap(PropertyListSerialization.propertyList(from: Data(contentsOf: path), format: nil) as? [String: Any])
         XCTAssertEqual(snapshot[AppDefaults.Keys.appTheme] as? String, "broken-theme")
+        XCTAssertEqual(snapshot[AppDefaults.Keys.accentColorHex] as? String, "24706A")
+        XCTAssertEqual(snapshot[AppDefaults.Keys.popupTintHex] as? String, "24706A")
+        XCTAssertEqual(snapshot[AppDefaults.Keys.popupTintStrength] as? Double, 0.15)
+        XCTAssertNil(defaults.persistentDomain(forName: domain)?[AppDefaults.Keys.accentColorHex])
         XCTAssertNil(snapshot[AppDefaults.Keys.openaiApiKey])
         XCTAssertNil(snapshot["custom_service"])
         let attributes = try FileManager.default.attributesOfItem(atPath: path.path)

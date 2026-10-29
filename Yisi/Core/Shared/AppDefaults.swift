@@ -8,6 +8,10 @@ enum AppDefaults {
     enum Keys {
         // General
         static let appTheme = "app_theme"
+        static let popupLiquidGlass = "popup_liquid_glass"
+        static let accentColorHex = "accent_color_hex"
+        static let popupTintHex = "popup_tint_hex"
+        static let popupTintStrength = "popup_tint_strength"
         static let appLanguage = "app_language"
         static let closeMode = "close_mode"
         static let hasLaunchedBefore = "has_launched_before"
@@ -66,6 +70,10 @@ enum AppDefaults {
 
     // General
     static let appTheme = "light"
+    static let popupLiquidGlass = false
+    static let accentColorHex = "696485"
+    static let popupTintHex = "D2CBDE"
+    static let popupTintStrength = 0.12
     static let appLanguage = "zh"
     static let closeMode = "clickOutside"
     static let launchAtLogin = true
@@ -113,6 +121,10 @@ enum AppDefaults {
     static func registerDefaults() {
         UserDefaults.standard.register(defaults: [
             Keys.appTheme: appTheme,
+            Keys.popupLiquidGlass: popupLiquidGlass,
+            Keys.accentColorHex: accentColorHex,
+            Keys.popupTintHex: popupTintHex,
+            Keys.popupTintStrength: popupTintStrength,
             Keys.appLanguage: appLanguage,
             Keys.closeMode: closeMode,
             Keys.launchAtLogin: launchAtLogin,

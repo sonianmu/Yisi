@@ -15,7 +15,7 @@ struct PeriscopeSearchField: View {
                 ZStack {
                     // Glass Background
                     // Animate between Label (100 or 140) and Bar (400)
-                    VisualEffectView(material: .hudWindow, blendingMode: .behindWindow)
+                    ThemeBackground()
                         .cornerRadius(12)
                         .shadow(color: Color.black.opacity(0.1), radius: 8, x: 0, y: 4)
                         .overlay(

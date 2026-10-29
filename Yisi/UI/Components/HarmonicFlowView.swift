@@ -4,8 +4,8 @@ struct HarmonicFlowView: View {
     let text: String
     
     // Colors from Design System
-    private let barBaseColor = AppColors.mist
-    private let barActiveColor = AppColors.yisiLight
+    private var barBaseColor: Color { AppColors.mist }
+    private var barActiveColor: Color { AppColors.yisiLight }
     
     private let speed: Double = 1.8
     

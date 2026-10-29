@@ -38,7 +38,7 @@ struct WelcomeView: View {
 
     var body: some View {
         ZStack {
-            (colorScheme == .dark ? Color(hex: "202024") : Color(hex: "F8F7F4"))
+            ThemeBackground()
                 .ignoresSafeArea()
 
             VStack(spacing: 0) {
@@ -214,6 +214,7 @@ struct WelcomeView: View {
                                 lineWidth: 1
                             )
                     )
+                    .contentShape(RoundedRectangle(cornerRadius: 10))
             }
             .buttonStyle(.plain)
             .padding(.horizontal, 52)
@@ -307,6 +308,7 @@ struct WelcomeView: View {
                                 lineWidth: 1
                             )
                     )
+                    .contentShape(RoundedRectangle(cornerRadius: 10))
             }
             .buttonStyle(.plain)
             .disabled(requestingScreenCapture)

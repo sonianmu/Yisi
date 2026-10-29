@@ -246,6 +246,7 @@ struct ScreenshotShortcutRecorder: View {
 }
 
 struct SettingsContent: View {
+    @AppStorage(AppDefaults.Keys.popupLiquidGlass) private var liquidGlassEnabled = AppDefaults.popupLiquidGlass
     @State private var selectedSection: String = "General"
     @ObservedObject private var localizationManager = LocalizationManager.shared
     @Environment(\.colorScheme) var currentColorScheme
@@ -269,7 +270,9 @@ struct SettingsContent: View {
             .frame(width: 120)
             .background(
                 Group {
-                    if currentColorScheme == .dark {
+                    if #available(macOS 26.0, *), liquidGlassEnabled {
+                        AppColors.primary.opacity(currentColorScheme == .dark ? 0.08 : 0.035)
+                    } else if currentColorScheme == .dark {
                         ZStack {
                             Color(hex: "29292C")
                             RoundedRectangle(cornerRadius: 16)
@@ -382,6 +385,7 @@ struct ElegantSegmentedPicker: View {
 struct GeneralSettingsView: View {
     @AppStorage(AppDefaults.Keys.closeMode) private var closeMode: String = AppDefaults.closeMode
     @AppStorage(AppDefaults.Keys.appTheme) private var appTheme: String = AppDefaults.appTheme
+    @AppStorage(AppDefaults.Keys.popupLiquidGlass) private var popupLiquidGlass: Bool = AppDefaults.popupLiquidGlass
     @AppStorage(AppDefaults.Keys.autoCheckUpdates) private var autoCheckUpdates: Bool = AppDefaults.autoCheckUpdates
     @ObservedObject private var localizationManager = LocalizationManager.shared
     @State private var launchAtLogin: Bool = SMAppService.mainApp.status == .enabled
@@ -420,6 +424,30 @@ struct GeneralSettingsView: View {
                         appTheme = "light"
                     }
                 }
+
+                HStack {
+                    Text("Liquid Glass".localized)
+                        .font(.system(size: 13, design: .serif))
+                        .foregroundColor(.secondary)
+                        .frame(width: 80, alignment: .leading)
+
+                    if #available(macOS 26.0, *) {
+                        ElegantToggle(isOn: $popupLiquidGlass)
+                            .accessibilityLabel("Liquid Glass".localized)
+                    } else {
+                        ElegantToggle(isOn: .constant(false))
+                            .disabled(true)
+                            .accessibilityLabel("Liquid Glass".localized)
+                    }
+
+                    if #unavailable(macOS 26.0) {
+                        Text("Requires macOS 26 or later".localized)
+                            .font(.system(size: 11, design: .serif))
+                            .foregroundColor(.secondary)
+                    }
+                }
+
+                ThemeColorSettingsView()
             }
             
             Divider().opacity(0.3)

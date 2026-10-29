@@ -4,6 +4,8 @@ import Foundation
 enum SoftwareRepair {
     static let resetKeys = [
         AppDefaults.Keys.appTheme, AppDefaults.Keys.closeMode,
+        AppDefaults.Keys.popupLiquidGlass,
+        AppDefaults.Keys.accentColorHex, AppDefaults.Keys.popupTintHex, AppDefaults.Keys.popupTintStrength,
         AppDefaults.Keys.globalShortcutKey, AppDefaults.Keys.globalShortcutModifiers,
         AppDefaults.Keys.screenshotShortcutKey, AppDefaults.Keys.screenshotShortcutModifiers,
         AppDefaults.Keys.popupFrameRect

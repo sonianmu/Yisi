@@ -71,6 +71,10 @@ Download the latest `.dmg` from the [Releases](https://github.com/sonianmu/Yisi/
 
 Shortcuts are customizable in Settings > General.
 
+Enable Apple's native Liquid Glass in **Settings > General > Liquid Glass** on macOS 26 or later (off by default). It applies throughout translation popups, settings and history, onboarding, and editor windows. Earlier systems retain the existing appearance. When enabled, Reduce Transparency or Increase Contrast uses solid backgrounds for readability.
+
+The Color Palette control in General settings displays only the current swatch. Click to choose from six muted swatches without visible palette names; each pairs an accent with a subtle glass tint across windows while retaining the reading layer. The adjustment icon opens custom colors and tint strength. Colors are saved automatically; use Restore Default or the preview icon to compare the result.
+
 ### Five-Minute Setup
 
 1. Obtain an API key and a model ID from your provider.

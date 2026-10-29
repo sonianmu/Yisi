@@ -60,8 +60,7 @@ struct LayoutEditorView: View {
             GeometryReader { geometry in
                 ZStack(alignment: .topLeading) {
                     // Window Body
-                    RoundedRectangle(cornerRadius: 12)
-                        .fill(Color(nsColor: .windowBackgroundColor).opacity(0.8))
+                    ThemeBackground()
                         .frame(width: frame.width, height: frame.height)
                         .shadow(color: .black.opacity(0.2), radius: 20, x: 0, y: 10)
                         .overlay(
