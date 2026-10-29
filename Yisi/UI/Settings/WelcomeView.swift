@@ -1,5 +1,5 @@
 import SwiftUI
-import ScreenCaptureKit
+import CoreGraphics
 
 struct WelcomeView: View {
     @Environment(\.colorScheme) private var colorScheme
@@ -12,6 +12,7 @@ struct WelcomeView: View {
     @State private var requestingScreenCapture = false
     @State private var relaunching = false
     @State private var requestedAccessibility = false
+    @State private var requestedScreenCapture = false
     @State private var finishingWelcome = false
     @StateObject private var aiServiceForm = AIServiceFormModel(draft: AIServiceDraft.load(image: false))
     @State private var saveTask: Task<Void, Never>?
@@ -118,7 +119,7 @@ struct WelcomeView: View {
                     Image(systemName: "arrow.right")
                 }
                 .font(.system(size: 14, weight: .medium))
-                .foregroundColor(.white).padding(14)
+                .foregroundColor(AppColors.onAccent).padding(14)
                 .background(AppColors.primary, in: RoundedRectangle(cornerRadius: 8))
             }
             .buttonStyle(.plain).padding(.bottom, 36)
@@ -192,13 +193,15 @@ struct WelcomeView: View {
             Button(action: {
                 if accessibilityGranted {
                     withAnimation { currentStep = 3 }
+                } else if requestedAccessibility {
+                    openPermissionSettings("Privacy_Accessibility")
                 } else {
-                    requestAccessibilityPermission(openSettings: true)
+                    requestAccessibilityPermission()
                 }
             }) {
-                Text(accessibilityGranted ? "Next".localized : "Enable".localized)
+                Text((accessibilityGranted ? "Next" : (requestedAccessibility ? "Open System Settings" : "Enable")).localized)
                     .font(.system(size: 14, weight: .medium, design: .serif))
-                    .foregroundColor(accessibilityGranted ? .white : AppColors.primary)
+                    .foregroundColor(accessibilityGranted ? AppColors.onAccent : AppColors.primary)
                     .frame(maxWidth: .infinity)
                     .frame(height: 42)
                     .background(
@@ -220,21 +223,6 @@ struct WelcomeView: View {
             .padding(.horizontal, 52)
             .padding(.bottom, 36)
             .animation(.easeInOut(duration: 0.4), value: accessibilityGranted)
-            if !accessibilityGranted {
-                Button("Show App in Finder".localized) {
-                    NSWorkspace.shared.selectFile(Bundle.main.bundlePath, inFileViewerRootedAtPath: "")
-                }
-                .buttonStyle(.plain)
-                .font(.system(size: 11)).foregroundColor(AppColors.primary)
-                .padding(.bottom, 18)
-            }
-        }
-        .task {
-            // Let a grant from System Settings settle before requesting again.
-            do { try await Task.sleep(for: .milliseconds(600)) } catch { return }
-            guard currentStep == 2, !finishingWelcome else { return }
-            refreshAuthorization()
-            if !accessibilityGranted { requestAccessibilityPermission(openSettings: false) }
         }
     }
 
@@ -260,20 +248,12 @@ struct WelcomeView: View {
                 .foregroundColor(.secondary)
                 .padding(.top, 8)
 
-            Text("Enable Yisi in System Settings. If it is missing, reveal the app in Finder and add it with the + button.".localized)
+            Text("Turn on Yisi in System Settings, then return here.".localized)
                 .font(.system(size: 12))
                 .foregroundColor(.secondary)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 44)
                 .padding(.top, 16)
-
-            Button("Show App in Finder".localized) {
-                NSWorkspace.shared.activateFileViewerSelecting([Bundle.main.bundleURL])
-            }
-            .buttonStyle(.plain)
-            .font(.system(size: 12))
-            .foregroundColor(.secondary)
-            .padding(.top, 10)
 
             RoundedRectangle(cornerRadius: 1)
                 .fill(AppColors.primary.opacity(screenCaptureGranted ? 0.5 : 0.12))
@@ -286,13 +266,15 @@ struct WelcomeView: View {
             Button(action: {
                 if screenCaptureGranted {
                     withAnimation { currentStep = 4 }
+                } else if requestedScreenCapture {
+                    openPermissionSettings("Privacy_ScreenCapture")
                 } else {
                     requestScreenCapturePermission()
                 }
             }) {
-                Text(requestingScreenCapture ? "Waiting for authorization…".localized : (screenCaptureGranted ? "Next".localized : "Enable".localized))
+                Text((requestingScreenCapture ? "Waiting for authorization…" : (screenCaptureGranted ? "Next" : (requestedScreenCapture ? "Open System Settings" : "Enable"))).localized)
                     .font(.system(size: 14, weight: .medium, design: .serif))
-                    .foregroundColor(screenCaptureGranted ? .white : AppColors.primary)
+                    .foregroundColor(screenCaptureGranted ? AppColors.onAccent : AppColors.primary)
                     .frame(maxWidth: .infinity)
                     .frame(height: 42)
                     .background(
@@ -331,7 +313,7 @@ struct WelcomeView: View {
             Spacer()
             Button(action: onComplete) {
                 Text("Get Started".localized)
-                    .font(.system(size: 14, weight: .medium)).foregroundColor(.white)
+                    .font(.system(size: 14, weight: .medium)).foregroundColor(AppColors.onAccent)
                     .frame(maxWidth: .infinity).padding(.vertical, 14)
                     .background(AppColors.primary, in: RoundedRectangle(cornerRadius: 8))
             }
@@ -357,38 +339,60 @@ struct WelcomeView: View {
             UserDefaults.standard.synchronize()
         }
         requestingScreenCapture = true
-        // Wait for ScreenCaptureKit's authorization request to finish before
-        // opening Settings, so the app's permission entry has time to appear.
-        SCShareableContent.getExcludingDesktopWindows(false, onScreenWindowsOnly: false) { _, _ in
-            DispatchQueue.main.async {
-                requestingScreenCapture = false
-                if CGPreflightScreenCaptureAccess() {
-                    relaunchApp()
-                } else if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture") {
-                    NSWorkspace.shared.open(url)
+        DispatchQueue.main.async {
+            defer { requestingScreenCapture = false }
+            NSApp.activate(ignoringOtherApps: true)
+            let outcome = PermissionRequest.perform(
+                preflight: { CGPreflightScreenCaptureAccess() },
+                registerApplication: registerCurrentApplication,
+                requestAccess: {
+                    requestedScreenCapture = true
+                    return CGRequestScreenCaptureAccess()
                 }
+            )
+            if outcome == .granted {
+                relaunchApp()
+            } else if outcome == .registrationFailed {
+                showPermissionRegistrationFailure()
             }
         }
     }
 
-    private func requestAccessibilityPermission(openSettings: Bool) {
+    private func requestAccessibilityPermission() {
         if tracksProgress {
             UserDefaults.standard.set(2, forKey: AppDefaults.Keys.welcomeStep)
             UserDefaults.standard.synchronize()
         }
-        if !AXIsProcessTrusted() && !requestedAccessibility {
-            requestedAccessibility = true
-            let options: NSDictionary = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true]
-            // The prompt registers this running app with TCC, not just LaunchServices.
-            // Its asynchronous result is handled by polling, never by resetting again.
-            _ = AXIsProcessTrustedWithOptions(options)
-            NSLog("Yisi requesting accessibility: path=%@", Bundle.main.bundlePath)
-        }
+        let outcome = PermissionRequest.perform(
+            preflight: { AXIsProcessTrusted() },
+            registerApplication: registerCurrentApplication,
+            requestAccess: {
+                guard !requestedAccessibility else { return AXIsProcessTrusted() }
+                requestedAccessibility = true
+                let options: NSDictionary = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true]
+                return AXIsProcessTrustedWithOptions(options)
+            }
+        )
+        if outcome == .registrationFailed { showPermissionRegistrationFailure() }
         refreshAuthorization()
-        if openSettings && !accessibilityGranted,
-           let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") {
+    }
+
+    private func registerCurrentApplication() -> Bool {
+        PermissionReset.registerApplication(bundleID: Bundle.main.bundleIdentifier ?? "", appPath: Bundle.main.bundlePath)
+    }
+
+    private func openPermissionSettings(_ pane: String) {
+        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?\(pane)") {
             NSWorkspace.shared.open(url)
         }
+    }
+
+    private func showPermissionRegistrationFailure() {
+        let alert = AppAlert()
+        alert.alertStyle = .warning
+        alert.messageText = "Could not prepare authorization".localized
+        alert.informativeText = "Please reopen the installed Yisi app and try again. Existing permissions have not been reset.".localized
+        alert.runModal()
     }
 
     private func startPolling() {

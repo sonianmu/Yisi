@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "id": "my-local-translator",
+  "name": "My Translator",
+  "endpoint": "http://127.0.0.1:19387/translate",
+  "method": "POST",
+  "encoding": "json",
+  "headers": {},
+  "parameters": {"text": "{{text}}", "source": "{{source}}", "target": "{{target}}"},
+  "responsePath": ["translation"],
+  "languageMap": {},
+  "requiresSecret": false
+}

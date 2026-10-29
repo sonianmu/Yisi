@@ -71,8 +71,8 @@ enum AppDefaults {
     // General
     static let appTheme = "light"
     static let popupLiquidGlass = false
-    static let accentColorHex = "696485"
-    static let popupTintHex = "D2CBDE"
+    static let accentColorHex = ""
+    static let popupTintHex = "EBEAF5"
     static let popupTintStrength = 0.12
     static let appLanguage = "zh"
     static let closeMode = "clickOutside"

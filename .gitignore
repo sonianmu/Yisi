@@ -48,6 +48,8 @@ DerivedData
 # Build artifacts
 .build_app/
 *.dmg
+Yisi-Assisted.zip
+SHA256SUMS.txt
 
 # User Specific
 #

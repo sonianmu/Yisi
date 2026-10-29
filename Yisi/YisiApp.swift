@@ -45,6 +45,44 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         )
 
         #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("--preview-sources") {
+            checkingUpdatePermissions = false
+            let defaults = UserDefaults(suiteName: "com.sonianmu.yisi.source-preview")!
+            defaults.removePersistentDomain(forName: "com.sonianmu.yisi.source-preview")
+            let store = TranslationSourceStore(directory: FileManager.default.temporaryDirectory.appendingPathComponent("yisi-source-preview"), defaults: defaults)
+            let source = TranslationSource(schemaVersion: 1, id: "my-local-translator", name: "My Translator",
+                                           endpoint: "http://127.0.0.1:19387/translate", method: "POST", encoding: "json", headers: [:],
+                                           parameters: ["text": .string("{{text}}"), "source": .string("{{source}}"), "target": .string("{{target}}")],
+                                           responsePath: ["translation"], languageMap: [:], requiresSecret: false)
+            try? store.install(source)
+            defaults.set(source.id, forKey: TranslationSourceStore.selectedKey)
+            let content = DialogSurface {
+                VStack(alignment: .leading, spacing: 24) {
+                    Text("Other Sources".localized).font(.system(size: 23, weight: .medium, design: .serif))
+                    TranslationSourcesSettingsView(store: store, defaults: defaults)
+                }.padding(28).frame(width: 520)
+            }
+            let window = AppDialogWindow.make(content: content, size: CGSize(width: 520, height: 320))
+            window.title = "翻译源预览"
+            settingsWindow = window
+            window.makeKeyAndOrderFront(nil)
+            NSApp.activate(ignoringOtherApps: true)
+            return
+        }
+        if ProcessInfo.processInfo.arguments.contains("--preview-palettes") {
+            checkingUpdatePermissions = false
+            let window = AppDialogWindow.make(content: ThemePalettePreview(), size: CGSize(width: 1040, height: 690))
+            window.title = "配色预览"
+            settingsWindow = window
+            window.makeKeyAndOrderFront(nil)
+            NSApp.activate(ignoringOtherApps: true)
+            return
+        }
+        if let preview = ProcessInfo.processInfo.arguments.first(where: { $0.hasPrefix("--preview-dialog=") }) {
+            checkingUpdatePermissions = false
+            UpdateManager.shared.previewDialog(String(preview.dropFirst("--preview-dialog=".count)))
+            return
+        }
         if ProcessInfo.processInfo.arguments.contains("--preview-popup") || ProcessInfo.processInfo.arguments.contains("--preview-appearance") {
             checkingUpdatePermissions = false
             if ProcessInfo.processInfo.arguments.contains("--preview-appearance") {
@@ -73,7 +111,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             try PermissionMigration.checkpoint(plan, defaults: defaults, persist: { defaults.synchronize() })
         } catch {
             NSLog("Yisi update permission checkpoint failed; no permissions reset")
-            let alert = NSAlert()
+            let alert = AppAlert()
             alert.messageText = "System authorization still required".localized
             alert.informativeText = "The update permission state could not be saved. No permissions or user data were reset. Please restart Yisi; if the problem persists, report it on GitHub Issues.".localized
             alert.runModal()
@@ -92,7 +130,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             PermissionMigration.finish(plan, failures: failures, defaults: defaults)
             NSLog("Yisi update permission migration: attempted=%@ failed=%@", plan.services.joined(separator: ","), failures.joined(separator: ","))
             if !failures.isEmpty {
-                let alert = NSAlert()
+                let alert = AppAlert()
                 alert.messageText = "System authorization still required".localized
                 alert.informativeText = "Some permissions could not be refreshed automatically. Follow the system authorization prompts. If Yisi still cannot be authorized, please report the problem on GitHub Issues. Your API keys and history are preserved.".localized
                 alert.addButton(withTitle: "OK".localized)
@@ -110,7 +148,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                     NSApp.terminate(nil)
                     return
                 } catch {
-                    let alert = NSAlert()
+                    let alert = AppAlert()
                     alert.messageText = "System authorization still required".localized
                     alert.informativeText = "Please quit and reopen Yisi to finish updating permissions. Your API keys and history are preserved.".localized
                     alert.runModal()

@@ -10,15 +10,13 @@ final class SoftwareRepairManager: ObservableObject {
 
     func presentRepair() {
         guard !isRepairing else { return }
-        let alert = NSAlert()
+        let alert = AppAlert()
         alert.alertStyle = .warning
         alert.messageText = "Repair Software".localized
         alert.informativeText = "Repair restores appearance, shortcuts and window layout, archives caches, and attempts to recover unavailable permissions. API keys, service settings, translation history, history images, presets and learned rules are preserved. Settings are backed up first, but some temporary data or personal preferences may be lost. Yisi will restart. If it still does not work, please report the problem on GitHub Issues.".localized
         alert.addButton(withTitle: "Repair and Restart".localized)
         alert.addButton(withTitle: "Cancel".localized)
-        // Cancel is the default to avoid triggering a reset with an accidental Return.
-        alert.buttons[0].keyEquivalent = ""
-        alert.buttons[1].keyEquivalent = "\r"
+        alert.defaultButtonIndex = 1
         NSApp.activate(ignoringOtherApps: true)
         guard alert.runModal() == .alertFirstButtonReturn else { return }
         runRepair()
@@ -91,7 +89,7 @@ final class SoftwareRepairManager: ObservableObject {
             return
         }
         if !permissionWarnings.isEmpty {
-            let alert = NSAlert()
+            let alert = AppAlert()
             alert.messageText = "System authorization still required".localized
             alert.informativeText = "Settings and caches have been repaired. Some permissions could not be reset automatically; after restart, follow the authorization prompts. If the problem persists, please report it on GitHub Issues.".localized
             alert.addButton(withTitle: "Restart".localized)
@@ -115,7 +113,7 @@ final class SoftwareRepairManager: ObservableObject {
     }
 
     private func showFailure(_ reason: String) {
-        let alert = NSAlert()
+        let alert = AppAlert()
         alert.alertStyle = .warning
         alert.messageText = "Repair could not finish".localized
         alert.informativeText = "Your API keys and history have not been deleted. Please report the problem on GitHub Issues if it persists.".localized + "\n\n" + reason

@@ -17,11 +17,22 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Build DMG
+        env:
+          SKIP_DMG_STYLING: '1'
         run: |
           chmod +x scripts/build_dmg.sh
           ./scripts/build_dmg.sh
 
+      - name: Verify tests and release checksums
+        run: |
+          swift test
+          python3 -m unittest discover -s scripts/tests -v
+          shasum -a 256 -c SHA256SUMS.txt
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: Yisi.dmg
+          files: |
+            Yisi.dmg
+            Yisi-Assisted.zip
+            SHA256SUMS.txt

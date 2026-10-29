@@ -94,6 +94,12 @@ enum PermissionMigration {
 
 /// No shell interpolation, no `reset All`, and no access to the TCC database.
 enum PermissionReset {
+    static func registerApplication(bundleID: String, appPath: String,
+                                    run: (String, [String]) -> Bool = { run(executable: $0, arguments: $1) }) -> Bool {
+        guard bundleID == "com.sonianmu.yisi", appPath.hasSuffix(".app") else { return false }
+        return run("/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister", ["-f", appPath])
+    }
+
     static func run(executable: String, arguments: [String], timeout: TimeInterval = 10) -> Bool {
         let task = Process()
         task.executableURL = URL(fileURLWithPath: executable)
@@ -115,7 +121,7 @@ enum PermissionReset {
         guard bundleID == "com.sonianmu.yisi", appPath.hasSuffix(".app"),
               services.allSatisfy({ ["Accessibility", "ScreenCapture"].contains($0) }) else { return services }
         // A manually replaced bundle may not yet be known to LaunchServices.
-        let registered = run("/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister", ["-f", appPath])
+        let registered = registerApplication(bundleID: bundleID, appPath: appPath, run: run)
         guard registered else { return services }
         return services.filter { service in
             // Authorization can change while application registration is running.

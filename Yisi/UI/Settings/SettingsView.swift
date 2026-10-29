@@ -23,11 +23,13 @@ enum ClosingMode: String, CaseIterable, Identifiable {
 enum TranslationEngine: String, CaseIterable {
     case system = "system"
     case ai = "ai"
+    case external = "external"
     
     var displayName: String {
         switch self {
         case .system: return "macOS System"
         case .ai: return "AI Service"
+        case .external: return "Translation Sources"
         }
     }
 }
@@ -331,7 +333,7 @@ struct SidebarButton: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(
                     RoundedRectangle(cornerRadius: 6)
-                        .fill(isSelected ? AppColors.primary.opacity(0.1) : Color.clear)
+                        .fill(isSelected ? AppColors.selection : Color.clear)
                 )
         }
         .buttonStyle(.plain)
@@ -788,7 +790,8 @@ struct TranslationSettingsView: View {
                 HStack(spacing: 0) {
                     ElegantSegmentedPicker(
                         selection: $translationEngine,
-                        options: [("system", "System Translation".localized), ("ai", "AI Translation".localized)]
+                        options: [("system", "System Translation".localized), ("ai", "AI Translation".localized),
+                                  ("external", "Other Sources".localized)]
                     )
                 }
             }
@@ -820,6 +823,9 @@ struct TranslationSettingsView: View {
                 
                 // Learned Rules Section
                 LearnedRulesSection()
+            } else if translationEngine == "external" {
+                Divider().opacity(0.3)
+                TranslationSourcesSettingsView()
             } else {
                 Divider().opacity(0.3)
                 
@@ -1477,7 +1483,7 @@ struct PresetEditor: View {
                 }) {
                     Text("Save".localized)
                         .font(.system(size: 13, weight: .medium, design: .serif))
-                        .foregroundColor(.white)
+                        .foregroundColor(name.isEmpty ? .white : AppColors.onAccent)
                         .padding(.horizontal, 20)
                         .padding(.vertical, 8)
                         .background(
@@ -1861,7 +1867,7 @@ struct EditRuleSheet: View {
                 }) {
                     Text("Save".localized)
                         .font(.system(size: 13, weight: .medium, design: .serif))
-                        .foregroundColor(.white)
+                        .foregroundColor(AppColors.onAccent)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 10)
                         .background(AppColors.primary)
@@ -2001,7 +2007,7 @@ struct AddRuleSheet: View {
                 }) {
                     Text("Save".localized)
                         .font(.system(size: 13, weight: .medium, design: .serif))
-                        .foregroundColor(.white)
+                        .foregroundColor(canSave ? AppColors.onAccent : .white)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 10)
                         .background(canSave ? AppColors.primary : Color.gray.opacity(0.3))

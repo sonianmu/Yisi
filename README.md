@@ -73,7 +73,11 @@ Shortcuts are customizable in Settings > General.
 
 Enable Apple's native Liquid Glass in **Settings > General > Liquid Glass** on macOS 26 or later (off by default). It applies throughout translation popups, settings and history, onboarding, and editor windows. Earlier systems retain the existing appearance. When enabled, Reduce Transparency or Increase Contrast uses solid backgrounds for readability.
 
-The Color Palette control in General settings displays only the current swatch. Click to choose from six muted swatches without visible palette names; each pairs an accent with a subtle glass tint across windows while retaining the reading layer. The adjustment icon opens custom colors and tint strength. Colors are saved automatically; use Restore Default or the preview icon to compare the result.
+The Color Palette control displays only the current swatch. Five coordinated palettes are available: original purple, ink blue, jade green, warm red, and soft gold, without visible names. Each has individually specified light and dark accents, supporting colors, selection backgrounds, button text, and glass tint. Restore Default returns to the original palette; existing custom colors are preserved.
+
+Releases include standard `Yisi.dmg` and `Yisi-Assisted.zip`, containing the same app plus an inspectable, explicitly confirmed install script. The script removes download quarantine from that Yisi copy only, without sudo, global security changes, or privacy grants. Screen Recording and Accessibility still require user approval. See [assisted installation](docs/assisted-install.txt). Release assets include `SHA256SUMS.txt`; in-app updates keep using the standard DMG.
+
+**Settings > Translation > Other Sources** imports user/Agent-authored JSON adapters for HTTPS translation APIs or user-owned loopback HTTP bridges. Credentials stay in Keychain; source approval is explicit and invalidated by configuration changes. External sources support plain text translation and local OCR, not AI prompts, custom modes or learning. See the [adapter contract and Agent handoff](docs/translation-sources.md).
 
 ### Five-Minute Setup
 
@@ -190,7 +194,7 @@ The script outputs `Yisi.dmg` and `build-app/Release/Yisi.app`. It does not publ
 
 For local development, use `./scripts/fresh-start.sh --close`, `--start`, or `--new`. Closing and starting preserve data. `--new` closes Yisi, clears all preferences, API keys (including Keychain), presets, history, history images, learned rules, repair backups, caches, logs, and Yisi's old sandbox data, then resets its permissions and exits. It does not build, relaunch, or remove the app or source code. Permission reset failures are reported after data cleanup; the app stays closed. Add `--keep-keys --keep-permissions` to explicitly retain credentials and permissions, or `--dry-run` to preview operations. Run `--start` separately when you want to launch again. The development app is built at `build-app/Debug/Yisi.app`; logs are saved in `~/Library/Logs/Yisi/`. Automatic update checks are disabled for the development session without changing saved preferences.
 
-First launch shows onboarding before Settings. The screen recording step requests system authorization and offers “Show App in Finder” so you can select the exact `Yisi.app` with the permission page's `+` button if needed. The app restarts when authorization is detected. Development builds use ad-hoc signing, so rebuilding may require authorization again.
+First launch shows onboarding before Settings. Permission pages do not request access automatically. Clicking Enable registers the running app and requests native authorization without also opening System Settings. Open settings using the system prompt; after a denied or suppressed request, onboarding offers an explicit Open System Settings button. The app restarts when screen recording authorization is detected. Development builds use ad-hoc signing, so rebuilding may require authorization again.
 
 ---
 

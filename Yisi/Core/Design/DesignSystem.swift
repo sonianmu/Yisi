@@ -16,15 +16,19 @@ final class ThemePalette {
 
 struct AppColors {
     // Core Palette (Dynamic)
-    static var yisiPurple: Color { accentColor(light: "555386", dark: "9D9AC6", lightBlend: 0.12, darkBlend: 0.3) }
+    static var yisiPurple: Color { accentColor(role: \.accent, light: "555386", dark: "9D9AC6", lightBlend: 0.12, darkBlend: 0.3) }
     
-    static var yisiDeep: Color { accentColor(light: "413F6B", dark: "6A6896", lightBlend: 0.25, darkBlend: 0.1) }
+    static var yisiDeep: Color { accentColor(role: \.deep, light: "413F6B", dark: "6A6896", lightBlend: 0.25, darkBlend: 0.1) }
     
-    static var yisiLight: Color { accentColor(light: "7A78AD", dark: "B0AED6", lightBlend: -0.2, darkBlend: 0.45) }
+    static var yisiLight: Color { accentColor(role: \.secondary, light: "7A78AD", dark: "B0AED6", lightBlend: -0.2, darkBlend: 0.45) }
 
-    private static func accentColor(light: String, dark: String, lightBlend: Double, darkBlend: Double) -> Color {
+    private static func accentColor(role: KeyPath<ThemeColors, String>, light: String, dark: String, lightBlend: Double, darkBlend: Double) -> Color {
         let customHex = ThemePalette.shared.accentColorHex
+        let preset = ThemePreset.forAccent(customHex)
         return Color(dynamicProvider: { appearance in
+            if let preset {
+                return Color(hex: preset.colors(isDark: appearance.isDarkMode)[keyPath: role])
+            }
             guard !customHex.isEmpty else {
                 return Color(hex: appearance.isDarkMode ? dark : light)
             }
@@ -35,9 +39,15 @@ struct AppColors {
         })
     }
     
-    static var mist: Color {
+    static var mist: Color { surfaceColor(role: \.mist) }
+
+    private static func surfaceColor(role: KeyPath<ThemeColors, String>) -> Color {
         let customHex = ThemePalette.shared.accentColorHex
+        let preset = ThemePreset.forAccent(customHex)
         return Color(dynamicProvider: { appearance in
+            if let preset {
+                return Color(hex: preset.colors(isDark: appearance.isDarkMode)[keyPath: role])
+            }
             guard !customHex.isEmpty else {
                 return Color(hex: appearance.isDarkMode ? "2A2836" : "EBEAF5")
             }
@@ -65,7 +75,13 @@ struct AppColors {
     static var secondary: Color { yisiLight }
     static var background: Color { mist }
     static let text = inkMain
-    static var selection: Color { mist }
+    static var selection: Color { surfaceColor(role: \.selection) }
+    static var onAccent: Color {
+        let preset = ThemePreset.forAccent(ThemePalette.shared.accentColorHex)
+        return Color(dynamicProvider: { appearance in
+            Color(hex: preset?.colors(isDark: appearance.isDarkMode).onAccent ?? "FFFFFF")
+        })
+    }
 }
 
 extension NSAppearance {

@@ -39,7 +39,7 @@ struct TranslationView: View {
     // Computed property for dynamic output placeholder
     var outputPlaceholder: String {
         let mode = determineMode()
-        if translationEngine == "system" {
+        if translationEngine != "ai" {
             return "Translation result will appear here...".localized
         }
         switch mode {
@@ -54,6 +54,7 @@ struct TranslationView: View {
     
     // Determine current mode based on settings
     func determineMode() -> PromptMode {
+        if translationEngine == "external" { return .defaultTranslation }
         if !presetModeEnabled {
             return .temporaryCustom
         }
@@ -281,7 +282,7 @@ struct TranslationView: View {
                                             .padding(.horizontal, 25)
                                             .padding(.vertical, 20)
                                     } else if translatedText.isEmpty {
-                                        Text(translationEngine == "system" ? "Translation result will appear here...".localized : "AI recognition result will appear here...".localized)
+                                        Text(translationEngine != "ai" ? "Translation result will appear here...".localized : "AI recognition result will appear here...".localized)
                                             .font(.system(size: 16, weight: .light, design: .serif))
                                             .foregroundColor(.secondary.opacity(0.5))
                                             .padding(.horizontal, 25)
@@ -574,7 +575,9 @@ struct TranslationView: View {
             let mode = determineMode()
             
             // Use System Translation only for Default Translation mode with system engine
-            if translationEngine == "system" && mode == .defaultTranslation {
+            if translationEngine == "external" {
+                translatedText = try await performExternalTranslation(originalText)
+            } else if translationEngine == "system" && mode == .defaultTranslation {
                 translatedText = try await performSystemTranslation()
             } else {
                 translatedText = try await AIService.shared.processText(
@@ -619,6 +622,12 @@ struct TranslationView: View {
             from: sourceLang
         )
     }
+
+    private func performExternalTranslation(_ text: String) async throws -> String {
+        try await TranslationSourceStore.shared.translate(
+            text, source: sourceLanguage == .auto ? "auto" : mapLanguageToSystemCode(sourceLanguage),
+            target: mapLanguageToSystemCode(targetLanguage))
+    }
     
     /// Map Language enum to system translation language codes
     private func mapLanguageToSystemCode(_ language: Language) -> String {
@@ -648,7 +657,10 @@ struct TranslationView: View {
             let mode = determineMode()
             
             // Use LocalVision + System Translation when system engine is selected
-            if translationEngine == "system" && mode == .defaultTranslation {
+            if translationEngine == "external" {
+                let extractedText = try await LocalVisionService.shared.recognizeText(from: image)
+                translatedText = try await performExternalTranslation(extractedText)
+            } else if translationEngine == "system" && mode == .defaultTranslation {
                 // Step 1: Extract text from image using LocalVisionService
                 print("[SystemEngine] Starting OCR...")
                 let extractedText = try await LocalVisionService.shared.recognizeText(from: image)
@@ -1052,7 +1064,7 @@ struct YisiButton: View {
                 // Text "Yisi"
                 Text("Yisi")
                     .font(.system(size: 13, weight: .semibold, design: .serif))
-                    .foregroundColor(isLoading ? AppColors.primary : Color.white)
+                    .foregroundColor(isLoading ? AppColors.primary : AppColors.onAccent)
                     // Breathing Animation
                     .opacity(isLoading ? 0.5 : 1)
                     .scaleEffect(isLoading ? 0.95 : 1)

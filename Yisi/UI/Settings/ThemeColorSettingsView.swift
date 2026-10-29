@@ -7,6 +7,7 @@ struct ThemeColorSettingsView: View {
     @AppStorage(AppDefaults.Keys.popupTintStrength) private var tintStrength = AppDefaults.popupTintStrength
     @State private var showAdvanced = false
     @State private var showPalettes = false
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         HStack {
@@ -19,7 +20,7 @@ struct ThemeColorSettingsView: View {
                 showPalettes.toggle()
             } label: {
                 HStack(spacing: 7) {
-                    swatch(accent: AppColors.primary, tint: tintHex)
+                    swatch(accent: AppColors.primary, tint: currentTint)
                     Image(systemName: "chevron.down")
                         .font(.system(size: 10, weight: .medium))
                         .foregroundColor(.secondary)
@@ -66,6 +67,11 @@ struct ThemeColorSettingsView: View {
         }
     }
 
+    private var currentTint: String {
+        ThemePreset.forAccent(palette.accentColorHex)?
+            .glassTint(storedHex: tintHex, strength: tintStrength, isDark: colorScheme == .dark) ?? tintHex
+    }
+
     private var paletteOptions: some View {
         HStack(spacing: 7) {
             ForEach(ThemePreset.all) { preset in
@@ -75,7 +81,8 @@ struct ThemeColorSettingsView: View {
                     tintStrength = preset.tintStrength
                     showPalettes = false
                 } label: {
-                    swatch(accent: Color(hex: preset.swatchAccentHex), tint: preset.tintHex)
+                    swatch(accent: Color(hex: preset.colors(isDark: colorScheme == .dark).accent),
+                           tint: preset.colors(isDark: colorScheme == .dark).glassTint)
                         .padding(4)
                         .overlay {
                             Capsule()

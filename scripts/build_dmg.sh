@@ -45,6 +45,9 @@ cp icon_1024x1024.png AppIcon.iconset/icon_512x512@2x.png
 
 iconutil -c icns AppIcon.iconset -o AppIcon.icns
 cp AppIcon.icns "${APP_BUNDLE}/Contents/Resources/AppIcon.icns"
+mkdir -p "${APP_BUNDLE}/Contents/Resources/TranslationSources/examples"
+cp docs/translation-sources.md docs/translation-source.example.json "${APP_BUNDLE}/Contents/Resources/TranslationSources/"
+cp docs/examples/translation-bridge.py "${APP_BUNDLE}/Contents/Resources/TranslationSources/examples/"
 
 # Cleanup icon build artifacts
 rm -rf AppIcon.iconset icon_1024x1024.png AppIcon.icns
@@ -97,6 +100,8 @@ cat > "${APP_BUNDLE}/Contents/Info.plist" <<PLIST
     <string>14.0</string>
     <key>LSUIElement</key>
     <true/>
+    <key>NSScreenCaptureUsageDescription</key>
+    <string>Yisi captures the area you select for screenshot translation.</string>
     <key>CFBundleIconFile</key>
     <string>AppIcon</string>
 </dict>
@@ -245,3 +250,5 @@ hdiutil convert "${DMG_TEMP}" -format UDZO -o "${APP_NAME}.dmg"
 rm -f "${DMG_TEMP}"
 
 echo "Build complete: ${APP_NAME}.dmg"
+bash scripts/package_assisted.sh "${APP_BUNDLE}" "${APP_NAME}-Assisted.zip"
+/usr/bin/shasum -a 256 "${APP_NAME}.dmg" "${APP_NAME}-Assisted.zip" > SHA256SUMS.txt

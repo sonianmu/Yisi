@@ -1,0 +1,38 @@
+Yisi 辅助安装包 / Assisted installation
+
+仅从 https://github.com/sonianmu/Yisi/releases 下载。
+Only download from the official release page above.
+
+1. 将 ZIP 完整解压，不要只取出脚本。退出已运行的 Yisi。
+2. 双击 Install Yisi.command，阅读终端中的说明。
+3. 确认安装位置，输入 y 并按回车。无需 sudo 或管理员密码。
+4. Yisi 启动后，仍需亲自在系统设置中授予录屏、辅助功能权限。
+
+1. Extract the entire ZIP. Quit any running Yisi.
+2. Double-click Install Yisi.command and read the Terminal instructions.
+3. Confirm the destination, type y and press Return. No sudo is used.
+4. Grant Screen Recording and Accessibility in System Settings when prompted.
+
+如果 macOS 阻止脚本启动：打开终端，输入 /bin/bash 和一个空格，将
+Install Yisi.command 拖进终端，按回车。也可以改用标准 DMG 包，按照
+“系统设置 → 隐私与安全性 → 仍要打开”的官方流程启动。
+If macOS blocks the script: open Terminal, type /bin/bash followed by a space,
+drag Install Yisi.command into Terminal, and press Return. Alternatively use
+the standard DMG and Apple's Privacy & Security > Open Anyway flow.
+
+这不是 Apple 签名或公证安装包。脚本仅移除安装副本自身的
+com.apple.quarantine 下载隔离标记，不关闭 Gatekeeper/SIP，不修改 TCC
+数据库，不重置或自动授予任何隐私权限，也不会重新签名应用。
+This is not Developer ID signed or notarized. The script only removes
+com.apple.quarantine from the installed Yisi copy. It does not disable
+Gatekeeper/SIP, modify TCC, reset/grant privacy permissions, or re-sign the app.
+
+默认安装到 /Applications；无写权限时安装到 ~/Applications。
+已有目标应用会备份在同目录下的 .Yisi-previous.*/Yisi.app.disabled。
+安装中途失败会尝试恢复旧版本。不要同时保留运行多个版本。
+Default destination: /Applications; fallback: ~/Applications if not writable.
+The previous copy is kept in .Yisi-previous.*/Yisi.app.disabled alongside it.
+Failed installations attempt to restore that copy. Do not run multiple copies.
+
+检查安装步骤而不修改文件：/bin/bash "Install Yisi.command" --dry-run
+Inspect without changes: /bin/bash "Install Yisi.command" --dry-run
