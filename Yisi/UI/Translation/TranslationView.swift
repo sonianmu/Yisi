@@ -136,15 +136,15 @@ struct TranslationView: View {
                             // .padding(.top, 2)
                     }
                 }
-                .padding(.horizontal, 24)
+                .padding(.horizontal, 20)
                 .padding(.vertical, 20)
                 .padding(.trailing, closeMode == "xButton" ? 40 : 0) // Reserve space for gravity orb
                 .background(Color.primary.opacity(0.01)) // Almost invisible background
                 .animation(.spring(response: 0.3, dampingFraction: 0.8), value: inputPerceptionHeight)
                 .animation(.spring(response: 0.3, dampingFraction: 0.8), value: outputInstructionHeight)
+
+                Divider().opacity(0.3)
             }
-            
-            Divider().opacity(0.3)
 
             if let errorMessage = errorMessage {
                 HStack {
@@ -162,10 +162,6 @@ struct TranslationView: View {
 
             
             // Analysis Result Banner - REMOVED
-            
-
-            
-            Divider().opacity(0.5)
             
             // Language Selectors - Top Position (Only in Default Translation Mode)
             if determineMode() == .defaultTranslation {
@@ -189,9 +185,9 @@ struct TranslationView: View {
                 .padding(.vertical, 8)
                 .background(Color.primary.opacity(0.02))
                 .transition(.opacity)
+
+                Divider().opacity(0.3)
             }
-            
-            Divider().opacity(0.3)
             
             // Main Content Area - Layout depends on mode
             if isImageMode {
@@ -279,13 +275,13 @@ struct TranslationView: View {
                                 Group {
                                     if isTranslating {
                                         HarmonicFlowView(text: "Recognizing image...".localized)
-                                            .padding(.horizontal, 25)
+                                            .padding(.horizontal, 20)
                                             .padding(.vertical, 20)
                                     } else if translatedText.isEmpty {
                                         Text(translationEngine != "ai" ? "Translation result will appear here...".localized : "AI recognition result will appear here...".localized)
                                             .font(.system(size: 16, weight: .light, design: .serif))
                                             .foregroundColor(.secondary.opacity(0.5))
-                                            .padding(.horizontal, 25)
+                                            .padding(.horizontal, 20)
                                             .padding(.vertical, 20)
                                             .allowsHitTesting(false)
                                     }
@@ -311,13 +307,13 @@ struct TranslationView: View {
                                 Group {
                                     if isTranslating {
                                         HarmonicFlowView(text: originalText)
-                                            .padding(.horizontal, 25)
+                                            .padding(.horizontal, 20)
                                             .padding(.vertical, 20)
                                     } else if translatedText.isEmpty {
                                         Text(outputPlaceholder)
                                             .font(.system(size: 16, weight: .light, design: .serif))
                                             .foregroundColor(.secondary.opacity(0.5))
-                                            .padding(.horizontal, 25)
+                                            .padding(.horizontal, 20)
                                             .padding(.vertical, 20)
                                             .allowsHitTesting(false)
                                     }
@@ -400,10 +396,12 @@ struct TranslationView: View {
                     }
                     .keyboardShortcut(.return, modifiers: .command)
                 }
-            }.padding(16).background(Color.primary.opacity(0.03))
+            }.padding(.horizontal, 20).padding(.vertical, 16).background(Color.primary.opacity(0.03))
         }.background(ThemeBackground())
-        .cornerRadius(12)
-        .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.primary.opacity(0.1), lineWidth: 0.5))
+        // 3. The content fills the window, titlebar included, so its corners are the window's.
+        .clipShape(WindowCorner.window)
+        .overlay(WindowCorner.window.stroke(Color.primary.opacity(0.1), lineWidth: 1))
+        .ignoresSafeArea()
         .overlay(alignment: .topTrailing) {
             if closeMode == "xButton" {
                 CloseButton {
@@ -841,7 +839,7 @@ struct CustomTextEditor: View {
                 Text(placeholder)
                     .font(.system(size: 16, weight: .light, design: .serif))
                     .foregroundColor(AppColors.text.opacity(0.4))
-                    .padding(.horizontal, 25)
+                    .padding(.horizontal, 20)
                     .padding(.vertical, 20)
                     .allowsHitTesting(false)
             }
@@ -870,7 +868,8 @@ struct MacEditorView: NSViewRepresentable {
         textView.isRichText = false
         textView.isVerticallyResizable = true
         textView.isHorizontallyResizable = false
-        textView.textContainerInset = NSSize(width: 20, height: 20)
+        // 15 + the 5 pt line fragment padding puts text 20 pt in, on the popup's gutter.
+        textView.textContainerInset = NSSize(width: 15, height: 20)
         textView.delegate = context.coordinator
         scrollView.documentView = textView
         return scrollView

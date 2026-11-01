@@ -16,8 +16,9 @@ struct ClassicThemeBackground: View {
                 // Clean, matte, solid background. No purple, no shine.
                 Color(hex: "1C1C1E")
                     .edgesIgnoringSafeArea(.all)
-                RoundedRectangle(cornerRadius: 12)
-                    .strokeBorder(Color.white.opacity(0.1), lineWidth: 0.5)
+                // The window clips the outer half of the stroke, leaving 0.5 pt.
+                WindowCorner.window
+                    .stroke(Color.white.opacity(0.1), lineWidth: 1)
             } else {
                 // MARK: - Light Mode: Original Frost
                 // Base: Frosted Glass
@@ -56,8 +57,8 @@ struct ClassicThemeBackground: View {
                     startRadius: 0,
                     endRadius: 400
                 )
-                RoundedRectangle(cornerRadius: 12)
-                    .strokeBorder(
+                WindowCorner.window
+                    .stroke(
                         LinearGradient(
                             gradient: Gradient(colors: [
                                 Color.white.opacity(0.4),
@@ -66,7 +67,7 @@ struct ClassicThemeBackground: View {
                             startPoint: .top,
                             endPoint: .bottom
                         ),
-                        lineWidth: 0.5
+                        lineWidth: 1
                     )
             }
         }

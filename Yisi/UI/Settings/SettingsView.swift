@@ -277,8 +277,9 @@ struct SettingsContent: View {
                     } else if currentColorScheme == .dark {
                         ZStack {
                             Color(hex: "29292C")
-                            RoundedRectangle(cornerRadius: 16)
-                                .stroke(Color.white.opacity(0.1), lineWidth: 0.5)
+                            // Clipped below, so a 1 pt stroke leaves 0.5 pt inside.
+                            RoundedRectangle(cornerRadius: WindowCorner.radius)
+                                .stroke(Color.white.opacity(0.1), lineWidth: 1)
                         }
                     } else {
                         ZStack {
@@ -287,7 +288,7 @@ struct SettingsContent: View {
                         }
                     }
                 }
-                .cornerRadius(16)
+                .cornerRadius(WindowCorner.radius)
                 .shadow(color: Color.black.opacity(currentColorScheme == .dark ? 0.5 : 0.1), radius: 10, x: 0, y: 0)
             )
             .padding(.leading, 8)
@@ -333,7 +334,8 @@ struct SidebarButton: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(
                     RoundedRectangle(cornerRadius: 6)
-                        .fill(isSelected ? AppColors.selection : Color.clear)
+                        // Translucent, so it takes on the sidebar's tint instead of sitting on top of it.
+                        .fill(isSelected ? AppColors.primary.opacity(0.1) : Color.clear)
                 )
         }
         .buttonStyle(.plain)
@@ -417,14 +419,9 @@ struct GeneralSettingsView: View {
                     
                     CustomDropdown(
                         selection: $appTheme,
-                        options: ["light", "dark"],
-                        displayNames: ["Light".localized, "Dark".localized]
+                        options: ["system", "light", "dark"],
+                        displayNames: ["System".localized, "Light".localized, "Dark".localized]
                     )
-                }
-                .onAppear {
-                    if appTheme == "system" {
-                        appTheme = "light"
-                    }
                 }
 
                 HStack {
@@ -2150,19 +2147,11 @@ struct CustomDropdown: View {
                 }
             }
         } label: {
-            HStack {
-                Text(displayName(for: selection))
-                    .font(.system(size: 13, design: .serif))
-                    .foregroundColor(.primary)
-                Spacer()
-                // Removed redundant chevron
-            }
-            .padding(.vertical, 6)
-            .padding(.horizontal, 10)
-            .frame(width: 160)
-            .background(AppColors.primary.opacity(0.05))
-            .cornerRadius(4)
-            .overlay(RoundedRectangle(cornerRadius: 4).stroke(AppColors.primary.opacity(0.1), lineWidth: 0.5))
+            // Plain text and the system chevron on every macOS: from 26 the borderless style ignores
+            // a label's frame and background anyway, so none is drawn on earlier versions either.
+            Text(displayName(for: selection))
+                .font(.system(size: 13, design: .serif))
+                .foregroundColor(.primary)
         }
         .menuStyle(.borderlessButton)
         .fixedSize()

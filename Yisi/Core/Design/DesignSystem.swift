@@ -132,3 +132,22 @@ extension Color {
         )
     }
 }
+
+enum WindowCorner {
+    /// Corner radius of a titled window on macOS 11–15. From macOS 26 the system supplies the radius.
+    static let legacyRadius: CGFloat = 10
+
+    /// The window's corner radius, for panels that should carry the same rounding as the window.
+    static var radius: CGFloat {
+        if #available(macOS 26.0, *) { return 16 }
+        return legacyRadius
+    }
+
+    /// The window's own outline, for content that fills the window edge to edge.
+    static var window: AnyShape {
+        if #available(macOS 26.0, *) {
+            return AnyShape(ConcentricRectangle(corners: .concentric(minimum: .fixed(legacyRadius)), isUniform: true))
+        }
+        return AnyShape(RoundedRectangle(cornerRadius: legacyRadius, style: .continuous))
+    }
+}
