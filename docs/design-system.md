@@ -10,7 +10,7 @@ Two UI surfaces share a unified identity with platform-appropriate expression:
 | Property | App (SwiftUI) | Web (React + CSS) |
 |----------|---------------|-------------------|
 | Framework | SwiftUI | React + vanilla CSS |
-| Typography | System serif (.design(.serif)) | Inter / Noto Serif / Cormorant Garamond |
+| Typography | System serif (.design(.serif)) | Instrument Serif / Noto Serif SC / Inter / IBM Plex Mono |
 | Depth | Glass morphism (.hudWindow) | Glass backdrop-filter + border |
 | Layout | Native panels/windows | 1080px max, 3-col grid |
 
@@ -125,16 +125,22 @@ Two UI surfaces share a unified identity with platform-appropriate expression:
 
 ### Web (CSS)
 
+The website is one column on warm paper (#ecebe5) with film grain; Yisi purple appears only in selections, pressed
+keys and the Yisi button. Each feature (translation, preset mode, custom mode, vision) is a section that scrolls normally: a caption
+and keycaps, and a macro shot of a tilted screen with a shallow, pointer-following depth of field
+(`web/src/macro/Macro.tsx`). On desktop each section fills the viewport and the caption sits over the lower left;
+on phones the caption sits above a flat crop. Inside the crop everything shares one
+scale (u = 1 pt), so the Yisi window keeps its real 600 × 330 pt size relative to the text, after
+`Yisi/UI/Translation/TranslationView.swift`. Each section plays when it scrolls into view: the I-beam selects,
+the keys press, the window opens with HarmonicFlow and then the result. Copy is plain description, following the product logic of the original site; after the four sections come
+"Yisi has no dialog box" (select → present) and the three principles (free, open source, private).
+
 | Role | Size | Weight | Family |
 |------|------|--------|--------|
-| Display | clamp(2rem, 5vw, 3.5rem) | 300 | Cormorant Garamond |
-| H1 | clamp(1.8rem, 3.8vw, 3.6rem) | 400 | Noto Serif |
-| H3 | 1.125rem | 500 | Noto Serif |
-| Body | 0.9375rem | 400 | Inter |
-| Label | 0.875rem | 500 | Inter |
-| Small | 0.8125rem | 500 | Inter |
-| Micro | 0.6875rem | 500 | Inter |
-| Tiny | 0.625rem | 500 | Inter |
+| Headline | clamp(30px, 2.9vw, 44px) | 500, wdth 90 (zh 600) | Archivo / Noto Serif SC |
+| Body | 14-15px | 400 | Archivo |
+| Labels, chapter numbers | 12px | 400, wdth 80, tnum | Archivo |
+| Wordmark | 15px | 500, wdth 125 | Archivo |
 
 **Letter spacing:** -0.02em for headings, 0.06-0.1em for uppercase labels.
 **Line height:** 1.6-1.8 for body text, 1.2-1.3 for headlines.

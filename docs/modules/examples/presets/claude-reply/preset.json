@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "name": "Draft a reply",
+  "description": "Asks Claude Code to draft a reply to the selected message.",
+  "shortcut": "ctrl+option+r",
+  "command": {
+    "program": "claude",
+    "args": ["-p", "Draft a short, friendly reply to the message on stdin, in its language. Output the reply only."],
+    "stdin": "text",
+    "timeout": 180
+  }
+}

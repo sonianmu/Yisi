@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "name": "Translate and polish",
+  "description": "Translates, then rewrites the draft so it reads like the original was written in the target language.",
+  "accepts": ["text", "image"],
+  "shortcut": "ctrl+option+p",
+  "prompt": {
+    "steps": [
+      { "system": "@translate.md" },
+      {
+        "system": "@polish.md",
+        "user": "Original:\n{{text}}\n\nDraft:\n{{previous}}\n\nTerms to keep consistent:\n{{file:glossary.md}}"
+      }
+    ]
+  }
+}

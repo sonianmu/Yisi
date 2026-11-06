@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "name": "Local translator",
+  "description": "Sends text to the service in translation-bridge.py on this Mac.",
+  "http": {
+    "url": "http://127.0.0.1:19387/translate",
+    "timeout": 30
+  }
+}

@@ -164,6 +164,19 @@ enum AIConfigurationStore {
         }
     }
 
+    /// AI service modules are selected like built-in services, stored as "module:<id>".
+    static let modulePrefix = Module.selectionPrefix
+
+    static func providerKey(image: Bool, defaults: UserDefaults = .standard) -> String {
+        let separateImage = image && !(defaults.object(forKey: "apply_api_to_image_mode") == nil || defaults.bool(forKey: "apply_api_to_image_mode"))
+        return separateImage ? "image_api_provider" : "api_provider"
+    }
+
+    /// The provider module in use, if Settings selects one instead of a built-in service.
+    static func providerModule(image: Bool = false, defaults: UserDefaults = .standard) -> String? {
+        defaults.string(forKey: providerKey(image: image, defaults: defaults)).flatMap(Module.id(fromSelection:))
+    }
+
     static func resolve(image: Bool = false, defaults: UserDefaults = .standard) -> ResolvedAIService {
         let separateImage = image && !(defaults.object(forKey: "apply_api_to_image_mode") == nil || defaults.bool(forKey: "apply_api_to_image_mode"))
         let prefix = separateImage ? "image_" : ""

@@ -31,3 +31,14 @@ struct PromptPreset: Identifiable, Codable, Hashable {
     var inputPerception: String
     var outputInstruction: String
 }
+
+extension PromptPreset {
+    /// Hand-written “这是…，请…” presets, kept in preferences and exported with them.
+    static func saved(in defaults: UserDefaults = .standard) -> [PromptPreset] {
+        defaults.data(forKey: AppDefaults.Keys.savedPresets).flatMap { try? JSONDecoder().decode([PromptPreset].self, from: $0) } ?? []
+    }
+
+    static func save(_ presets: [PromptPreset], in defaults: UserDefaults = .standard) {
+        if let data = try? JSONEncoder().encode(presets) { defaults.set(data, forKey: AppDefaults.Keys.savedPresets) }
+    }
+}

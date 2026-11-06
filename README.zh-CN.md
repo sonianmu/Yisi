@@ -77,7 +77,9 @@ AI 不是你去拜访的对话伙伴，而是安静藏在你操作流里的一�
 
 通用设置的“界面配色”只显示当前色样，共五组：原版紫、墨蓝、玉绿、暖红、柔金，界面不显示配色名称。每组均单独设计深浅模式的强调色、辅助色、选中底色、按钮文字和玻璃染色，不再仅由一个主色混色生成。恢复默认会回到完整原版配色；已有自定义颜色保留。色样旁的调节图标可打开高级自定义，右侧预览图标可直接打开弹窗。
 
-在“设置 → 翻译 → 其他翻译源”可导入用户或 Agent 准备的 JSON 配置，不必将更多服务内置进应用。支持 HTTPS 请求、语言码映射、JSON/form/query 参数和响应路径提取；复杂签名可通过用户自建的本地 HTTP bridge 适配。密钥存入 Keychain，发送文本前需要明确批准接口，修改配置后重新审核。这些翻译源只支持普通翻译和本地 OCR，不使用 AI 提示词、模式或智能改进。见[翻译源配置协议与 Agent 指南](docs/translation-sources.md)。
+**模块**让你的 Agent 不改代码、不重新打包就能扩展 Yisi。模块分三种，各自是 `~/Library/Application Support/Yisi/modules/` 下带专属清单的文件夹：AI 服务（`providers/`）、处理选中文字或截图的预设，可绑定自己的快捷键（`presets/`），以及翻译源（`translators/`）。处理方式可以只用提示词、调用 HTTP 服务，或运行本地程序与 Agent。文字或图片进，文字出，弹窗始终由 Yisi 负责。模块统一在“设置 → 模块”中管理，会把文字发往新地址或运行程序的模块需要你在那里允许；密钥只存在钥匙串，升级不会触碰这个文件夹。手写的“这是…，请…”预设仍在“设置 → 模式”中编辑。Agent 阅读 Yisi 写在模块旁边的 `AGENTS.md`，并用 `Yisi modules validate` 自检。见[模块说明](docs/modules/README.md)。
+
+“设置 → 通用 → 数据”可将模块、预设、历史、学习规则和偏好设置导出为一个文件，并在另一台 Mac 上导入；API 密钥不会导出。
 
 ### 五分钟完成配置
 
@@ -154,6 +156,7 @@ Yisi/
 │   │   ├── History/          # 翻译历史持久化
 │   │   ├── Learning/         # Learned Rules 学习引擎
 │   │   ├── Localization/     # 多语言支持
+│   │   ├── Modules/          # 模块：载入、允许、prompt/http/command 执行、数据导出
 │   │   ├── Shared/           # 共享常量和配置
 │   │   ├── Shortcut/         # 全局快捷键管理
 │   │   ├── SystemTranslation/# macOS 原生离线翻译
@@ -201,7 +204,7 @@ cd ~/Desktop/Yisi
 ./scripts/fresh-start.sh --new     # 关闭并清除全部数据，不构建、不重新启动
 ```
 
-`--new` 会关闭 Yisi，删除全部配置、API 密钥（包括 Keychain）、预设、历史数据库与截图、学习规则、修复备份、缓存、日志和 Yisi 的旧沙盒数据，再重置系统授权并退出。它不构建、不重新启动，也不删除 App 或源代码。授权重置失败不会阻止前面的数据清理；脚本会报告失败，应用仍保持关闭。可加 `--keep-keys --keep-permissions` 显式保留密钥和授权；模型与服务地址仍恢复默认。任何模式都可加 `--dry-run` 仅预览操作。清除后需启动时，另行运行 `--start`。
+`--new` 会关闭 Yisi，删除全部配置、API 密钥（包括 Keychain）、模块与预设、历史数据库与截图、学习规则、修复备份、缓存、日志和 Yisi 的旧沙盒数据，再重置系统授权并退出。它不构建、不重新启动，也不删除 App 或源代码。授权重置失败不会阻止前面的数据清理；脚本会报告失败，应用仍保持关闭。可加 `--keep-keys --keep-permissions --keep-modules` 显式保留密钥、授权和模块；模型与服务地址仍恢复默认。任何模式都可加 `--dry-run` 仅预览操作。清除后需启动时，另行运行 `--start`。
 
 开发 App 位于 `build-app/Debug/Yisi.app`，日志位于 `~/Library/Logs/Yisi/`。脚本启动的开发会话暂停自动更新检查，不修改保存的更新偏好。需要加载新代码时，先 `--close` 再 `--start`。
 
@@ -235,7 +238,7 @@ macOS 仍可能要求重新确认授权；自动迁移不能代替系统确认�
 
 ## 软件修复
 
-应用出现异常时，可在“设置 → 通用”或菜单栏图标的右键菜单中选择“软件修复”。修复保留 API 密钥、服务配置、翻译历史、历史截图、预设和学习规则，只恢复外观、快捷键及窗口位置，并备份缓存和尝试恢复失效授权。确认页会提示可能丢失部分临时数据或个性化设置。备份位于 `~/Library/Application Support/com.sonianmu.yisi/RepairBackups/`。若仍无法使用，请通过 [GitHub Issues](https://github.com/sonianmu/Yisi/issues) 反馈。
+应用出现异常时，可在“设置 → 通用”或菜单栏图标的右键菜单中选择“软件修复”。修复保留 API 密钥、服务配置、模块与预设、翻译历史、历史截图和学习规则，只恢复外观、快捷键及窗口位置，并备份缓存和尝试恢复失效授权。确认页会提示可能丢失部分临时数据或个性化设置。备份位于 `~/Library/Application Support/com.sonianmu.yisi/RepairBackups/`。若仍无法使用，请通过 [GitHub Issues](https://github.com/sonianmu/Yisi/issues) 反馈。
 
 
 ---

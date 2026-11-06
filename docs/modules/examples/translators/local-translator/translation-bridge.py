@@ -1,3 +1,9 @@
+"""A minimal local service for an `http` translator module.
+
+It speaks Yisi's standard contract: it receives the request JSON (text, source, target, …)
+and answers {"text": "..."}. Put signing, OAuth or vendor SDK calls here; the module
+itself only needs the endpoint. Demo only: it translates "Hello" from en to zh-Hans.
+"""
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 
@@ -37,7 +43,7 @@ class TranslationBridge(BaseHTTPRequestHandler):
         if text != "Hello" or source != "en" or target != "zh-Hans":
             self.send_error(422, "Demo only supports Hello from en to zh-Hans")
             return
-        data = json.dumps({"translation": "你好"}, ensure_ascii=False).encode("utf-8")
+        data = json.dumps({"text": "你好"}, ensure_ascii=False).encode("utf-8")
         self.send_response(200)
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(data)))

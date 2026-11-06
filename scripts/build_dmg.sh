@@ -45,9 +45,6 @@ cp icon_1024x1024.png AppIcon.iconset/icon_512x512@2x.png
 
 iconutil -c icns AppIcon.iconset -o AppIcon.icns
 cp AppIcon.icns "${APP_BUNDLE}/Contents/Resources/AppIcon.icns"
-mkdir -p "${APP_BUNDLE}/Contents/Resources/TranslationSources/examples"
-cp docs/translation-sources.md docs/translation-source.example.json "${APP_BUNDLE}/Contents/Resources/TranslationSources/"
-cp docs/examples/translation-bridge.py "${APP_BUNDLE}/Contents/Resources/TranslationSources/examples/"
 
 # Cleanup icon build artifacts
 rm -rf AppIcon.iconset icon_1024x1024.png AppIcon.icns

@@ -46,7 +46,9 @@ enum SettingsPage: String, CaseIterable, Identifiable {
 }
 
 struct SettingsView: View {
-    @State private var selectedTopTab: Int = 0 // 0: History, 1: Settings
+    /// 0: History, 1: Settings. `--preview-settings` opens on Settings.
+    static var initialTopTab = 0
+    @State private var selectedTopTab: Int = SettingsView.initialTopTab
     @AppStorage(AppDefaults.Keys.appTheme) private var appTheme: String = AppDefaults.appTheme
     @ObservedObject private var localizationManager = LocalizationManager.shared
     
@@ -248,8 +250,10 @@ struct ScreenshotShortcutRecorder: View {
 }
 
 struct SettingsContent: View {
+    /// Lets debug previews open a given section.
+    static var initialSection = "General"
     @AppStorage(AppDefaults.Keys.popupLiquidGlass) private var liquidGlassEnabled = AppDefaults.popupLiquidGlass
-    @State private var selectedSection: String = "General"
+    @State private var selectedSection: String = SettingsContent.initialSection
     @ObservedObject private var localizationManager = LocalizationManager.shared
     @Environment(\.colorScheme) var currentColorScheme
     
@@ -261,6 +265,7 @@ struct SettingsContent: View {
                 SidebarButton(title: "AI Service".localized, isSelected: selectedSection == "AI Service") { selectedSection = "AI Service" }
                 SidebarButton(title: "Modes".localized, isSelected: selectedSection == "Modes") { selectedSection = "Modes" }
                 SidebarButton(title: "Translation".localized, isSelected: selectedSection == "Translation") { selectedSection = "Translation" }
+                SidebarButton(title: "Modules".localized, isSelected: selectedSection == "Modules") { selectedSection = "Modules" }
                 
                 Spacer()
                 
@@ -296,27 +301,39 @@ struct SettingsContent: View {
             .padding(.bottom, 8)
             
             // Section Content
-            TransparentScrollView {
-                VStack(alignment: .leading, spacing: 24) {
-                    switch selectedSection {
-                    case "AI Service":
-                        AIServiceSettingsView()
-                    case "Modes":
-                        ModesSettingsView()
-                    case "Translation":
-                        TranslationSettingsView()
-                    case "About":
-                        AboutView()
-                    default:
-                        GeneralSettingsView()
+            GeometryReader { viewport in
+                TransparentScrollView {
+                    VStack(alignment: .leading, spacing: 24) {
+                        switch selectedSection {
+                        case "AI Service":
+                            AIServiceSettingsView()
+                        case "Modes":
+                            ModesSettingsView()
+                        case "Translation":
+                            TranslationSettingsView()
+                        case "Modules":
+                            ModulesSettingsView()
+                        case "About":
+                            AboutView()
+                        default:
+                            GeneralSettingsView()
+                        }
                     }
+                    .padding(24)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .environment(\.settingsPageHeight, max(viewport.size.height - 48 - 1, 0))
                 }
-                .padding(24)
-                .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .onReceive(NotificationCenter.default.publisher(for: .showModules)) { _ in selectedSection = "Modules" }
     }
+}
+
+extension EnvironmentValues {
+    /// The height a settings page has without scrolling, inside the content padding.
+    /// A page with little in it uses this to centre its empty state on the whole pane.
+    @Entry var settingsPageHeight: CGFloat = 372
 }
 
 struct SidebarButton: View {
@@ -342,8 +359,8 @@ struct SidebarButton: View {
     }
 }
 
-// MARK: - Elegant Segmented Picker (Sliding Capsule)
-
+/// A choice set as type: the options sit in a row of words, the chosen one in the accent colour
+/// with a hairline beneath it. Nothing boxed, so it never competes with the sidebar's selection.
 struct ElegantSegmentedPicker: View {
     @Binding var selection: String
     let options: [(tag: String, label: String)]
@@ -351,36 +368,30 @@ struct ElegantSegmentedPicker: View {
     @Namespace private var namespace
 
     var body: some View {
-        HStack(spacing: 2) {
+        HStack(spacing: 20) {
             ForEach(options, id: \.tag) { option in
-                Button(action: {
-                    withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
-                        selection = option.tag
-                    }
-                }) {
+                let selected = selection == option.tag
+                Button {
+                    withAnimation(.easeOut(duration: 0.2)) { selection = option.tag }
+                } label: {
                     Text(option.label)
-                        .font(.system(size: 13, weight: selection == option.tag ? .medium : .regular, design: .serif))
-                        .foregroundColor(selection == option.tag ? AppColors.primary : .secondary)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 7)
-                        .background(
-                            Group {
-                                if selection == option.tag {
-                                    RoundedRectangle(cornerRadius: 6)
-                                        .fill(AppColors.primary.opacity(0.1))
-                                        .matchedGeometryEffect(id: "indicator", in: namespace)
-                                }
+                        .font(.system(size: 13, weight: selected ? .medium : .regular, design: .serif))
+                        .foregroundColor(selected ? AppColors.primary : AppColors.text.opacity(0.55))
+                        .padding(.vertical, 5)
+                        .overlay(alignment: .bottom) {
+                            if selected {
+                                Capsule()
+                                    .fill(AppColors.primary)
+                                    .frame(height: 1.5)
+                                    .matchedGeometryEffect(id: "indicator", in: namespace)
                             }
-                        )
+                        }
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
             }
         }
-        .padding(3)
-        .background(
-            RoundedRectangle(cornerRadius: 8)
-                .fill(AppColors.primary.opacity(0.04))
-        )
+        .fixedSize()
     }
 }
 
@@ -504,9 +515,7 @@ struct GeneralSettingsView: View {
                     
                     CustomDropdown(selection: $closeMode, options: ClosingMode.allCases.map { $0.rawValue }, displayNames: ClosingMode.allCases.map { $0.displayName.localized })
                 }
-                
-                Divider().opacity(0.2)
-                
+
                 HStack {
                     Text("Layout".localized)
                         .font(.system(size: 13, design: .serif))
@@ -559,6 +568,8 @@ struct GeneralSettingsView: View {
                     .padding(.top, 4)
             }
             Divider().opacity(0.3)
+            DataSettingsSection()
+            Divider().opacity(0.3)
             SoftwareRepairSection()
         }
     }
@@ -597,14 +608,15 @@ struct AIServiceSettingsView: View {
     }
 }
 
-// MARK: - Modes Settings View (Renamed from PromptsSection)
+// MARK: - Modes Settings View
 
 struct ModesSettingsView: View {
     @AppStorage(AppDefaults.Keys.presetModeEnabled) private var presetModeEnabled: Bool = AppDefaults.presetModeEnabled
     @AppStorage(AppDefaults.Keys.selectedPresetId) private var selectedPresetId: String = AppDefaults.selectedPresetId
+    @ObservedObject private var store = ModuleStore.shared
     @State private var presets: [PromptPreset] = []
     @State private var editingPreset: PromptPreset?
-    
+
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             // Preset Mode Toggle
@@ -620,16 +632,16 @@ struct ModesSettingsView: View {
                 Spacer()
                 ElegantToggle(isOn: $presetModeEnabled)
             }
-            
+
             Divider().opacity(0.3)
-            
+
             // Preset Selection (Only visible when preset mode is enabled)
             if presetModeEnabled {
                 VStack(alignment: .leading, spacing: 12) {
                     Text("Select Preset".localized)
                         .font(.system(size: 13, weight: .medium, design: .serif))
                         .foregroundColor(.primary)
-                    
+
                     // Default Translation Preset (Built-in)
                     PresetRadioRow(
                         id: AppDefaults.selectedPresetId,
@@ -638,9 +650,9 @@ struct ModesSettingsView: View {
                         isSelected: selectedPresetId == AppDefaults.selectedPresetId,
                         onSelect: { selectedPresetId = AppDefaults.selectedPresetId }
                     )
-                    
+
                     Divider().opacity(0.3)
-                    
+
                     // User Presets Header
                     HStack {
                         Text("Custom Presets".localized)
@@ -658,8 +670,9 @@ struct ModesSettingsView: View {
                                 .clipShape(Circle())
                         }
                         .buttonStyle(.plain)
+                        .accessibilityLabel("New Preset".localized)
                     }
-                    
+
                     // User Presets List
                     if presets.isEmpty {
                         Text("No custom presets yet".localized)
@@ -683,10 +696,21 @@ struct ModesSettingsView: View {
                             }
                         }
                     }
+
+                    moduleRows
                 }
             }
         }
-        .onAppear { loadPresets() }
+        .onAppear {
+            loadPresets()
+            store.reload()
+        }
+        .onChange(of: store.modules) { _, modules in
+            // A preset module that was removed from its folder cannot stay selected.
+            if let id = Module.id(fromSelection: selectedPresetId), !modules.contains(where: { $0.id == id && $0.role == .preset }) {
+                selectedPresetId = AppDefaults.selectedPresetId
+            }
+        }
         .sheet(item: $editingPreset) { preset in
             let isNew = !presets.contains(where: { $0.id == preset.id })
             PresetEditor(preset: preset, isNew: isNew, onSave: { updated in
@@ -701,39 +725,58 @@ struct ModesSettingsView: View {
             })
         }
     }
-    
-    private func loadPresets() {
-        if let data = UserDefaults.standard.data(forKey: AppDefaults.Keys.savedPresets),
-           let decoded = try? JSONDecoder().decode([PromptPreset].self, from: data) {
-            presets = decoded
+
+    /// Presets built by the user's agent: chosen here, managed under Modules.
+    @ViewBuilder
+    private var moduleRows: some View {
+        let modules = store.modules(for: .preset)
+        if !modules.isEmpty {
+            Divider().opacity(0.3)
+            HStack {
+                Text("From Modules".localized)
+                    .font(.system(size: 12, weight: .medium, design: .serif))
+                    .foregroundColor(.secondary)
+                Spacer()
+                ManageInModulesLink(role: .preset)
+            }
+            VStack(spacing: 8) {
+                ForEach(modules) { module in
+                    let status = ModuleStatus(module, store: store)
+                    PresetRadioRow(
+                        id: module.selection,
+                        name: module.name,
+                        description: status == .ready ? (module.manifest.description ?? module.meta) : status.label,
+                        isSelected: selectedPresetId == module.selection,
+                        onSelect: { selectedPresetId = module.selection }
+                    )
+                }
+            }
         }
     }
-    
+
+    private func loadPresets() {
+        presets = PromptPreset.saved()
+    }
+
     private func addPreset(_ preset: PromptPreset) {
         presets.append(preset)
-        persistPresets()
+        PromptPreset.save(presets)
     }
-    
+
     private func updatePreset(_ preset: PromptPreset) {
         if let index = presets.firstIndex(where: { $0.id == preset.id }) {
             presets[index] = preset
-            persistPresets()
+            PromptPreset.save(presets)
         }
     }
-    
+
     private func deletePreset(_ preset: PromptPreset) {
         presets.removeAll { $0.id == preset.id }
         // Reset to default translation if deleting currently selected preset
         if selectedPresetId == preset.id.uuidString {
             selectedPresetId = AppDefaults.selectedPresetId
         }
-        persistPresets()
-    }
-    
-    private func persistPresets() {
-        if let encoded = try? JSONEncoder().encode(presets) {
-            UserDefaults.standard.set(encoded, forKey: AppDefaults.Keys.savedPresets)
-        }
+        PromptPreset.save(presets)
     }
 }
 
@@ -784,13 +827,11 @@ struct TranslationSettingsView: View {
             VStack(alignment: .leading, spacing: 8) {
                 SectionHeader(title: "Engine".localized)
                 
-                HStack(spacing: 0) {
-                    ElegantSegmentedPicker(
-                        selection: $translationEngine,
-                        options: [("system", "System Translation".localized), ("ai", "AI Translation".localized),
-                                  ("external", "Other Sources".localized)]
-                    )
-                }
+                ElegantSegmentedPicker(
+                    selection: $translationEngine,
+                    options: [("system", "System Translation".localized), ("ai", "AI Translation".localized),
+                              ("external", "Other Sources".localized)]
+                )
             }
             
             // AI-specific settings
@@ -822,7 +863,7 @@ struct TranslationSettingsView: View {
                 LearnedRulesSection()
             } else if translationEngine == "external" {
                 Divider().opacity(0.3)
-                TranslationSourcesSettingsView()
+                TranslatorPicker()
             } else {
                 Divider().opacity(0.3)
                 
@@ -1122,203 +1163,6 @@ struct APIKeyInput: View {
                     .overlay(RoundedRectangle(cornerRadius: 4).stroke(AppColors.primary.opacity(0.1), lineWidth: 0.5))
             }
         }
-    }
-}
-
-struct PromptsSection: View {
-    @AppStorage(AppDefaults.Keys.presetModeEnabled) private var presetModeEnabled: Bool = AppDefaults.presetModeEnabled
-    @AppStorage(AppDefaults.Keys.selectedPresetId) private var selectedPresetId: String = AppDefaults.selectedPresetId
-    @State private var presets: [PromptPreset] = []
-    @State private var editingPreset: PromptPreset?
-    
-    var body: some View {
-        VStack(alignment: .leading, spacing: 24) {
-            SectionHeader(title: "Prompts".localized)
-            
-            // Preset Mode Toggle
-            HStack {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("启用预设模式".localized)
-                        .font(.system(size: 13, weight: .medium, design: .serif))
-                        .foregroundColor(.primary)
-                    Text("关闭时为临时自定义模式；开启后选择预设".localized)
-                        .font(.system(size: 12, design: .serif))
-                        .foregroundColor(.secondary.opacity(0.8))
-                }
-                Spacer()
-                ElegantToggle(isOn: $presetModeEnabled)
-            }
-            
-            Divider().opacity(0.3)
-            
-            // Preset Selection (Only visible when preset mode is enabled)
-            if presetModeEnabled {
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("选择预设".localized)
-                        .font(.system(size: 13, weight: .medium, design: .serif))
-                        .foregroundColor(.primary)
-                    
-                    // Default Translation Preset (Built-in)
-                    PresetRadioRow(
-                        id: AppDefaults.selectedPresetId,
-                        name: "默认翻译".localized,
-                        description: "Standard translation mode".localized,
-                        isSelected: selectedPresetId == AppDefaults.selectedPresetId,
-                        onSelect: { selectedPresetId = AppDefaults.selectedPresetId }
-                    )
-                    
-                    Divider().opacity(0.3)
-                    
-                    // User Presets Header
-                    HStack {
-                        Text("自定义预设".localized)
-                            .font(.system(size: 12, weight: .medium, design: .serif))
-                            .foregroundColor(.secondary)
-                        Spacer()
-                        Button(action: {
-                            editingPreset = PromptPreset(id: UUID(), name: "", inputPerception: "", outputInstruction: "")
-                        }) {
-                            Image(systemName: "plus")
-                                .font(.system(size: 11, weight: .medium))
-                                .foregroundColor(.primary)
-                                .padding(5)
-                                .background(Color.primary.opacity(0.05))
-                                .clipShape(Circle())
-                        }
-                        .buttonStyle(.plain)
-                    }
-                    
-                    // User Presets List
-                    if presets.isEmpty {
-                        Text("暂无自定义预设".localized)
-                            .font(.system(size: 12, design: .serif))
-                            .foregroundColor(.secondary.opacity(0.6))
-                            .padding(.vertical, 8)
-                    } else {
-                        VStack(spacing: 8) {
-                            ForEach(presets) { preset in
-                                PresetRadioRow(
-                                    id: preset.id.uuidString,
-                                    name: preset.name,
-                                    description: "\(preset.inputPerception.prefix(30))...",
-                                    isSelected: selectedPresetId == preset.id.uuidString,
-                                    onSelect: { selectedPresetId = preset.id.uuidString },
-                                    onEdit: {
-                                        editingPreset = preset
-                                    },
-                                    onDelete: { deletePreset(preset) }
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        .onAppear { loadPresets() }
-        .sheet(item: $editingPreset) { preset in
-            let isNew = !presets.contains(where: { $0.id == preset.id })
-            PresetEditor(preset: preset, isNew: isNew, onSave: { updated in
-                if isNew {
-                    addPreset(updated)
-                } else {
-                    updatePreset(updated)
-                }
-                editingPreset = nil
-            }, onCancel: {
-                editingPreset = nil
-            })
-        }
-    }
-    
-    private func loadPresets() {
-        if let data = UserDefaults.standard.data(forKey: AppDefaults.Keys.savedPresets),
-           let decoded = try? JSONDecoder().decode([PromptPreset].self, from: data) {
-            presets = decoded
-        }
-    }
-    
-    private func addPreset(_ preset: PromptPreset) {
-        presets.append(preset)
-        persistPresets()
-    }
-    
-    private func updatePreset(_ preset: PromptPreset) {
-        if let index = presets.firstIndex(where: { $0.id == preset.id }) {
-            presets[index] = preset
-            persistPresets()
-        }
-    }
-    
-    private func deletePreset(_ preset: PromptPreset) {
-        presets.removeAll { $0.id == preset.id }
-        // Reset to default translation if deleting currently selected preset
-        if selectedPresetId == preset.id.uuidString {
-            selectedPresetId = AppDefaults.selectedPresetId
-        }
-        persistPresets()
-    }
-    
-    private func persistPresets() {
-        if let encoded = try? JSONEncoder().encode(presets) {
-            UserDefaults.standard.set(encoded, forKey: AppDefaults.Keys.savedPresets)
-        }
-    }
-}
-
-struct PresetRow: View {
-    let preset: PromptPreset
-    let isActive: Bool
-    let onSelect: () -> Void
-    let onEdit: () -> Void
-    let onDelete: () -> Void
-    
-    var body: some View {
-        HStack(spacing: 12) {
-            // Radio Button
-            Button(action: onSelect) {
-                Image(systemName: isActive ? "largecircle.fill.circle" : "circle")
-                    .font(.system(size: 14))
-                    .foregroundColor(isActive ? .accentColor : .secondary.opacity(0.5))
-            }
-            .buttonStyle(.plain)
-            
-            VStack(alignment: .leading, spacing: 2) {
-                Text(preset.name)
-                    .font(.system(size: 13, weight: .medium, design: .serif))
-                    .foregroundColor(.primary)
-                Text(preset.inputPerception.prefix(30) + "...")
-                    .font(.system(size: 11, design: .serif))
-                    .foregroundColor(.secondary.opacity(0.7))
-                    .lineLimit(1)
-            }
-            
-            Spacer()
-            
-            // Actions
-            HStack(spacing: 8) {
-                Button(action: onEdit) {
-                    Image(systemName: "pencil")
-                        .font(.system(size: 12))
-                        .foregroundColor(.secondary)
-                }
-                .buttonStyle(.plain)
-                
-                Button(action: onDelete) {
-                    Image(systemName: "trash")
-                        .font(.system(size: 12))
-                        .foregroundColor(.secondary.opacity(0.8))
-                }
-                .buttonStyle(.plain)
-            }
-            .opacity(0.6)
-        }
-        .padding(10)
-        .background(isActive ? Color.accentColor.opacity(0.05) : Color.primary.opacity(0.02))
-        .cornerRadius(8)
-        .overlay(
-            RoundedRectangle(cornerRadius: 8)
-                .stroke(isActive ? Color.accentColor.opacity(0.2) : Color.primary.opacity(0.05), lineWidth: 1)
-        )
     }
 }
 
@@ -2155,6 +1999,9 @@ struct CustomDropdown: View {
         }
         .menuStyle(.borderlessButton)
         .fixedSize()
+        // The borderless menu insets its title by 3 pt; pull it back so the text starts on the
+        // same line as the toggles, fields and headers around it.
+        .padding(.leading, -3)
     }
     
     private func displayName(for option: String) -> String {

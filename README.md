@@ -77,7 +77,9 @@ The Color Palette control displays only the current swatch. Five coordinated pal
 
 Releases include standard `Yisi.dmg` and `Yisi-Assisted.zip`, containing the same app plus an inspectable, explicitly confirmed install script. The script removes download quarantine from that Yisi copy only, without sudo, global security changes, or privacy grants. Screen Recording and Accessibility still require user approval. See [assisted installation](docs/assisted-install.txt). Release assets include `SHA256SUMS.txt`; in-app updates keep using the standard DMG.
 
-**Settings > Translation > Other Sources** imports user/Agent-authored JSON adapters for HTTPS translation APIs or user-owned loopback HTTP bridges. Credentials stay in Keychain; source approval is explicit and invalidated by configuration changes. External sources support plain text translation and local OCR, not AI prompts, custom modes or learning. See the [adapter contract and Agent handoff](docs/translation-sources.md).
+**Modules** let your agent extend Yisi without rebuilding it. There are three kinds, each a folder with its own manifest under `~/Library/Application Support/Yisi/modules/`: an AI service (`providers/`), a preset for the selected text or a screenshot, optionally with its own shortcut (`presets/`), and a translation source (`translators/`). A module runs on prompts only, an HTTP service, or a local program or agent. Text in, text out; Yisi keeps the popup. Modules are managed in one place, **Settings > Modules**, where you approve anything that sends text somewhere new or runs code; keys stay in Keychain, and updates never touch the folder. Hand-written "This is… Please…" presets stay in **Settings > Modes**. Agents read the contract in `AGENTS.md`, which Yisi writes beside the modules, and check their work with `Yisi modules validate`. See [Modules](docs/modules/README.md).
+
+**Settings > General > Your Data** exports modules, presets, history, learned rules and preferences as one file and imports them on another Mac. API keys are never exported.
 
 ### Five-Minute Setup
 
@@ -154,6 +156,7 @@ Yisi/
 │   │   ├── History/          # Translation history persistence
 │   │   ├── Learning/         # Learned Rules engine
 │   │   ├── Localization/     # Multi-language support
+│   │   ├── Modules/          # Modules: loading, approval, prompt/http/command runners, data export
 │   │   ├── Shared/           # Shared constants and configuration
 │   │   ├── Shortcut/         # Global shortcut management
 │   │   ├── SystemTranslation/# macOS native offline translation
@@ -192,7 +195,7 @@ VERSION=1.3.3 ./scripts/build_dmg.sh
 
 The script outputs `Yisi.dmg` and `build-app/Release/Yisi.app`. It does not publish a GitHub release or change user data.
 
-For local development, use `./scripts/fresh-start.sh --close`, `--start`, or `--new`. Closing and starting preserve data. `--new` closes Yisi, clears all preferences, API keys (including Keychain), presets, history, history images, learned rules, repair backups, caches, logs, and Yisi's old sandbox data, then resets its permissions and exits. It does not build, relaunch, or remove the app or source code. Permission reset failures are reported after data cleanup; the app stays closed. Add `--keep-keys --keep-permissions` to explicitly retain credentials and permissions, or `--dry-run` to preview operations. Run `--start` separately when you want to launch again. The development app is built at `build-app/Debug/Yisi.app`; logs are saved in `~/Library/Logs/Yisi/`. Automatic update checks are disabled for the development session without changing saved preferences.
+For local development, use `./scripts/fresh-start.sh --close`, `--start`, or `--new`. Closing and starting preserve data. `--new` closes Yisi, clears all preferences, API keys (including Keychain), modules and presets, history, history images, learned rules, repair backups, caches, logs, and Yisi's old sandbox data, then resets its permissions and exits. It does not build, relaunch, or remove the app or source code. Permission reset failures are reported after data cleanup; the app stays closed. Add `--keep-keys --keep-permissions --keep-modules` to explicitly retain credentials, permissions and modules, or `--dry-run` to preview operations. Run `--start` separately when you want to launch again. The development app is built at `build-app/Debug/Yisi.app`; logs are saved in `~/Library/Logs/Yisi/`. Automatic update checks are disabled for the development session without changing saved preferences.
 
 First launch shows onboarding before Settings. Permission pages do not request access automatically. Clicking Enable registers the running app and requests native authorization without also opening System Settings. Open settings using the system prompt; after a denied or suppressed request, onboarding offers an explicit Open System Settings button. The app restarts when screen recording authorization is detected. Development builds use ad-hoc signing, so rebuilding may require authorization again.
 
@@ -221,7 +224,7 @@ macOS may still require users to confirm permission. Migration cannot grant auth
 
 ## Software Repair
 
-If Yisi stops working, choose **Software Repair** in **Settings > General** or the menu bar icon's context menu. Repair preserves API keys, service settings, translation history, history images, presets, and learned rules. It backs up caches and the preferences it resets, restores appearance, shortcuts, and window placement, and attempts to reset failed Accessibility or Screen Recording permissions before restarting. macOS may still require you to grant permission.
+If Yisi stops working, choose **Software Repair** in **Settings > General** or the menu bar icon's context menu. Repair preserves API keys, service settings, modules and presets, translation history, history images, and learned rules. It backs up caches and the preferences it resets, restores appearance, shortcuts, and window placement, and attempts to reset failed Accessibility or Screen Recording permissions before restarting. macOS may still require you to grant permission.
 
 The confirmation explains that some temporary data or personalization may be lost. Backups are stored in `~/Library/Application Support/com.sonianmu.yisi/RepairBackups/`. If repair does not help, report the problem through [GitHub Issues](https://github.com/sonianmu/Yisi/issues).
 

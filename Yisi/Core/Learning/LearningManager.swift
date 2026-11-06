@@ -8,14 +8,8 @@ class LearningManager {
     private let dbPath: String
     
     private init() {
-        let fileManager = FileManager.default
-        let appSupport = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
-        let appDir = appSupport.appendingPathComponent("com.yisi.app", isDirectory: true)
-        
-        // Create directory if needed
-        try? fileManager.createDirectory(at: appDir, withIntermediateDirectories: true)
-        
-        dbPath = appDir.appendingPathComponent("learned_rules.db").path
+        try? FileManager.default.createDirectory(at: YisiHome.shared.data, withIntermediateDirectories: true)
+        dbPath = YisiHome.shared.learnedRulesDatabase.path
         openDatabase()
         createTableIfNeeded()
     }
@@ -50,6 +44,11 @@ class LearningManager {
         sqlite3_finalize(statement)
     }
     
+    /// A consistent copy for export, taken through the open connection.
+    func backup(to url: URL) throws {
+        try SQLiteBackup.vacuum(db, into: url)
+    }
+
     // MARK: - AI Analysis
     
     func analyzeCorrection(

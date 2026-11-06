@@ -1,4 +1,5 @@
 import SwiftUI
+import Combine
 import ServiceManagement
 import ScreenCaptureKit
 
@@ -6,6 +7,11 @@ import ScreenCaptureKit
 @MainActor
 enum YisiApp {
     static func main() {
+        // `Yisi modules …` is a command-line tool for agents; it never starts the app.
+        let arguments = CommandLine.arguments
+        if arguments.count > 1, arguments[1] == "modules" {
+            ModuleCLI.main(Array(arguments.dropFirst(2)))
+        }
         // All windows are managed by AppDelegate. A SwiftUI Settings scene with
         // EmptyView can restore an extra, empty settings window at startup.
         let application = NSApplication.shared
@@ -17,12 +23,14 @@ enum YisiApp {
     }
 }
 
+@MainActor
 class AppDelegate: NSObject, NSApplicationDelegate {
     var statusItem: NSStatusItem?
     var settingsWindow: NSWindow?
     var welcomeWindow: NSWindow?
     private var checkingUpdatePermissions = true
     private var previouslyLaunched = false
+    private var moduleObservation: AnyCancellable?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         previouslyLaunched = UserDefaults.standard.bool(forKey: AppDefaults.Keys.hasLaunchedBefore)
@@ -45,28 +53,16 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         )
 
         #if DEBUG
-        if ProcessInfo.processInfo.arguments.contains("--preview-sources") {
+        if let target = ProcessInfo.processInfo.arguments.first(where: { $0.hasPrefix("--render-snapshots=") }) {
+            SettingsSnapshots.render(into: URL(fileURLWithPath: String(target.dropFirst("--render-snapshots=".count))))
+            exit(0)
+        }
+        if let preview = ProcessInfo.processInfo.arguments.first(where: { $0.hasPrefix("--preview-settings=") }) {
             checkingUpdatePermissions = false
-            let defaults = UserDefaults(suiteName: "com.sonianmu.yisi.source-preview")!
-            defaults.removePersistentDomain(forName: "com.sonianmu.yisi.source-preview")
-            let store = TranslationSourceStore(directory: FileManager.default.temporaryDirectory.appendingPathComponent("yisi-source-preview"), defaults: defaults)
-            let source = TranslationSource(schemaVersion: 1, id: "my-local-translator", name: "My Translator",
-                                           endpoint: "http://127.0.0.1:19387/translate", method: "POST", encoding: "json", headers: [:],
-                                           parameters: ["text": .string("{{text}}"), "source": .string("{{source}}"), "target": .string("{{target}}")],
-                                           responsePath: ["translation"], languageMap: [:], requiresSecret: false)
-            try? store.install(source)
-            defaults.set(source.id, forKey: TranslationSourceStore.selectedKey)
-            let content = DialogSurface {
-                VStack(alignment: .leading, spacing: 24) {
-                    Text("Other Sources".localized).font(.system(size: 23, weight: .medium, design: .serif))
-                    TranslationSourcesSettingsView(store: store, defaults: defaults)
-                }.padding(28).frame(width: 520)
-            }
-            let window = AppDialogWindow.make(content: content, size: CGSize(width: 520, height: 320))
-            window.title = "翻译源预览"
-            settingsWindow = window
-            window.makeKeyAndOrderFront(nil)
-            NSApp.activate(ignoringOtherApps: true)
+            SettingsContent.initialSection = String(preview.dropFirst("--preview-settings=".count))
+            SettingsView.initialTopTab = 1
+            UserDefaults.standard.set(true, forKey: AppDefaults.Keys.welcomeCompleted)
+            toggleSettings()
             return
         }
         if ProcessInfo.processInfo.arguments.contains("--preview-palettes") {
@@ -94,6 +90,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
         #endif
 
+        // User data first: a staged import, then files older versions kept elsewhere.
+        // Debug previews return above and never touch real data.
+        DataArchive.applyPendingImport()
+        LegacyDataMigration.run()
+        ModuleMigration.run()
         migrateUpdatePermissions()
     }
 
@@ -366,6 +367,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             self?.handleScreenshotShortcut()
         }
 
+        // 预设模块自己的快捷键
+        GlobalShortcutManager.shared.onModuleTriggered = { [weak self] id in
+            self?.handleModuleShortcut(id)
+        }
+        moduleObservation = ModuleStore.shared.$modules.sink { modules in
+            GlobalShortcutManager.shared.registerModuleShortcuts(modules)
+        }
+
         // 截图界面双击 -> 打开图片上传窗口
         ScreenCaptureManager.shared.onOpenUploadWindow = {
             DispatchQueue.main.async {
@@ -376,6 +385,18 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         GlobalShortcutManager.shared.startMonitoring()
     }
     
+    /// A preset's own shortcut: screenshot-only presets start a capture, the rest capture the selection.
+    private func handleModuleShortcut(_ id: String) {
+        guard let module = ModuleStore.shared.module(id) else { return }
+        if module.manifest.inputs == [.image] {
+            ScreenCaptureManager.shared.startCapture { image in
+                DispatchQueue.main.async { WindowManager.shared.showWithImage(image: image, module: module) }
+            }
+        } else {
+            handleShortcut(module: module)
+        }
+    }
+
     private func handleScreenshotShortcut() {
         ScreenCaptureManager.shared.startCapture { image in
             // 截图完成，显示翻译窗口（带图片上下文）
@@ -460,14 +481,17 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
                 window.animator().alphaValue = 0
             } completionHandler: { [weak self] in
-                window.close()
-                self?.welcomeWindow = nil
-                // Reentry may have hidden an existing settings view with an older API draft.
-                // Recreate it from the saved configuration before showing it again.
-                if let settingsWindow = self?.settingsWindow {
-                    settingsWindow.contentView = NSHostingView(rootView: SettingsView())
+                // AppKit calls animation completions on the main thread.
+                MainActor.assumeIsolated {
+                    window.close()
+                    self?.welcomeWindow = nil
+                    // Reentry may have hidden an existing settings view with an older API draft.
+                    // Recreate it from the saved configuration before showing it again.
+                    if let settingsWindow = self?.settingsWindow {
+                        settingsWindow.contentView = NSHostingView(rootView: SettingsView())
+                    }
+                    self?.toggleSettings()
                 }
-                self?.toggleSettings()
             }
         }
         window.contentView = NSHostingView(rootView: welcomeView)
@@ -476,7 +500,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         welcomeWindow = window
     }
 
-    private func handleShortcut() {
+    private func handleShortcut(module: Module? = nil) {
         // Capture text synchronously on main thread BEFORE any async work.
         // AX API must read the focused element while the source app still has focus.
         let immediateResult = TextCaptureService.shared.captureViaAccessibilityPublic()
@@ -505,7 +529,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             let finalError = error
             
             await MainActor.run {
-                WindowManager.shared.show(text: finalText, error: finalError)
+                WindowManager.shared.show(text: finalText, error: finalError, module: module)
             }
         }
     }

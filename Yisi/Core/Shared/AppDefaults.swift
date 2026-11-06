@@ -29,7 +29,8 @@ enum AppDefaults {
         static let enableImproveFeature = "enable_improve_feature"
         static let presetModeEnabled = "preset_mode_enabled"
         static let selectedPresetId = "selected_preset_id"
-        static let savedPresets = "saved_presets"
+        static let savedPresets = "saved_presets"  // hand-written “这是…，请…” presets
+        static let externalTranslator = "external_translation_source"
 
         // AI Service - Text
         static let apiProvider = "api_provider"

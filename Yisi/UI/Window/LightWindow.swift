@@ -42,12 +42,13 @@ class WindowManager: ObservableObject {
     
     private init() {}
     
-    func show(text: String, error: String? = nil) {
+    /// `module` runs a preset module for this popup only, as its shortcut does.
+    func show(text: String, error: String? = nil, module: Module? = nil) {
         // Close existing window if any to ensure fresh window with correct size
         close()
         
         let appTheme = UserDefaults.standard.string(forKey: AppDefaults.Keys.appTheme) ?? AppDefaults.appTheme
-        let contentView = TranslationView(originalText: text, errorMessage: error)
+        let contentView = TranslationView(originalText: text, errorMessage: error, module: module)
             .preferredColorScheme(ColorScheme(from: appTheme))
         
         let hostingController = NSHostingController(rootView: contentView)
@@ -109,11 +110,11 @@ class WindowManager: ObservableObject {
     }
     
     /// 显示带图片上下文的翻译窗口
-    func showWithImage(image: NSImage) {
+    func showWithImage(image: NSImage, module: Module? = nil) {
         close()
         
         let appTheme = UserDefaults.standard.string(forKey: AppDefaults.Keys.appTheme) ?? AppDefaults.appTheme
-        let contentView = TranslationView(originalText: "", errorMessage: nil, imageContext: image)
+        let contentView = TranslationView(originalText: "", errorMessage: nil, imageContext: image, module: module)
             .preferredColorScheme(ColorScheme(from: appTheme))
         
         let hostingController = NSHostingController(rootView: contentView)

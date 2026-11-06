@@ -55,6 +55,9 @@ elif name == "defaults":
     elif args[0] == "import":
         if os.environ.get("YISI_SCRIPT_TEST_IMPORT_FAIL") == "1": sys.exit(1)
         shutil.copyfile(args[2], root / "retained.plist")
+elif name == "security" and args[:1] == ["find-identity"]:
+    if os.environ.get("YISI_SCRIPT_TEST_IDENTITY"):
+        print('  1) ABC "%s"' % os.environ["YISI_SCRIPT_TEST_IDENTITY"])
 elif name == "security":
     deleted = root / "keychain-deleted"
     if deleted.exists(): sys.exit(44)
@@ -142,7 +145,17 @@ class FreshStartTests(unittest.TestCase):
         launch = next(event for event in self.events() if event[0] == "open")
         self.assertIn("-n", launch)
         self.assertIn(str(app), launch)
-        self.assertFalse(names & {"defaults", "security", "tccutil"})
+        self.assertFalse(names & {"defaults", "tccutil"})
+        self.assertFalse(any(event[0] == "security" and event[1] != "find-identity" for event in self.events()))
+        signing = next(event for event in self.events() if event[0] == "codesign" and "--sign" in event)
+        self.assertEqual(signing[signing.index("--sign") + 1], "-")
+
+    def test_start_signs_with_a_development_identity_so_permissions_survive_rebuilds(self):
+        identity = "Apple Development: Test (ABCDE12345)"
+        result = self.run_script("--start", YISI_SCRIPT_TEST_IDENTITY=identity)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        signing = next(event for event in self.events() if event[0] == "codesign" and "--sign" in event)
+        self.assertEqual(signing[signing.index("--sign") + 1], identity)
 
     def test_start_does_not_rebuild_an_already_running_app(self):
         (self.root / "running").touch()
@@ -189,6 +202,20 @@ class FreshStartTests(unittest.TestCase):
         self.assertEqual(len(backups), 1)
         self.assertEqual(backups[0].stat().st_mode & 0o777, 0o600)
         self.assertFalse(any(event[0] in ["security", "tccutil", "open"] for event in self.events()))
+
+    def test_new_can_keep_modules_while_clearing_everything_else(self):
+        home = self.root / "home"
+        yisi = home / "Library/Application Support/Yisi"
+        (yisi / "modules/polish").mkdir(parents=True)
+        (yisi / "modules/polish/module.json").write_text("{}")
+        (yisi / "data").mkdir()
+        (yisi / "data/history.sqlite").write_text("history")
+        result = self.run_script("--new", "--keep-modules", HOME=str(home))
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertTrue((yisi / "modules/polish/module.json").exists())
+        self.assertFalse((yisi / "data").exists())
+        self.assertEqual(list((home / "Library/Application Support").glob("Yisi-modules.*")), [])
+        self.assertEqual(self.run_script("--close", "--keep-modules").returncode, 2)
 
     def test_new_clears_only_yisi_state_and_scopes_permission_reset(self):
         result = self.run_script("--new")

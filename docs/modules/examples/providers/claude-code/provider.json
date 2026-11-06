@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "name": "Claude Code",
+  "description": "Runs Yisi's translation on claude -p, signed in on this Mac.",
+  "command": {
+    "program": "claude",
+    "args": ["-p"],
+    "stdin": "text",
+    "timeout": 180
+  }
+}

@@ -37,30 +37,82 @@ class AIService: ObservableObject {
     
     // MARK: - Shared configuration
 
-    private func configuredService(usage: APIUsage) throws -> ResolvedAIService {
+    /// Where a request goes: a configured service, or a provider module chosen in Settings.
+    private enum Route {
+        case service(ResolvedAIService)
+        case module(String)
+
+        func shouldEnhanceReview(mode: PromptMode, deepThinking: Bool) -> Bool {
+            if case .service(let service) = self { return service.shouldEnhanceReview(mode: mode, deepThinking: deepThinking) }
+            return false
+        }
+    }
+
+    private func route(usage: APIUsage) throws -> Route {
+        if let module = AIConfigurationStore.providerModule(image: usage == .image) { return .module(module) }
         let service = AIConfigurationStore.resolve(image: usage == .image)
         try service.requireConfigured()
-        return service
+        return .service(service)
     }
+
+    private func send(_ messages: [AIMessage], via route: Route, temperature: Double, maxTokens: Int,
+                      deepThinking: Bool) async throws -> String {
+        switch route {
+        case .service(let service):
+            let config = service.requestConfig(temperature: temperature, maxTokens: maxTokens, deepThinking: deepThinking)
+            return try await executeWithRetry {
+                try await self.getProviderInstance(for: service.provider).send(messages: messages, config: config)
+            }
+        case .module(let id):
+            let request = ModuleRequest(text: messages.filter { $0.role != .system }.map(\.content.text).joined(separator: "\n\n"),
+                                        image: messages.compactMap(\.content.image).first,
+                                        system: messages.filter { $0.role == .system }.map(\.content.text).joined(separator: "\n\n"))
+            return try await ModuleStore.shared.text(id, request)
+        }
+    }
+
+    private var deepThinking: Bool { UserDefaults.standard.bool(forKey: AppDefaults.Keys.enableDeepThinking) }
 
     /// Learning uses the same endpoint, model and capability configuration as text processing.
     func processAnalysis(_ prompt: String) async throws -> String {
-        let service = try configuredService(usage: .text)
-        let config = service.requestConfig(temperature: 0.3, maxTokens: 4096,
-            deepThinking: UserDefaults.standard.bool(forKey: AppDefaults.Keys.enableDeepThinking))
-        return try await executeWithRetry {
-            try await self.getProviderInstance(for: service.provider).send(
-                messages: [AIMessage(role: .user, text: prompt)], config: config)
+        try await send([AIMessage(role: .user, text: prompt)], via: try route(usage: .text),
+                       temperature: 0.3, maxTokens: 4096, deepThinking: deepThinking)
+    }
+
+    /// A plain completion for prompt modules: their own prompts, no JSON contract, no learned rules.
+    /// `provider` is "default" for the service in Settings, or the id of a provider module.
+    func complete(_ messages: [AIMessage], provider: String, temperature: Double?) async throws -> String {
+        var messages = messages
+        // Respect "System OCR" in Settings: the default service then never receives images.
+        if provider == "default",
+           UserDefaults.standard.string(forKey: AppDefaults.Keys.imageProcessingStrategy) == "local_ocr" {
+            messages = try await messages.asyncMap { message in
+                guard let image = message.content.image else { return message }
+                let text = try await LocalVisionService.shared.recognizeText(from: image)
+                return AIMessage(role: message.role, text: [message.content.text, text].filter { !$0.isEmpty }.joined(separator: "\n\n"))
+            }
         }
+        let route: Route
+        if provider == "default" {
+            route = try self.route(usage: messages.contains { $0.content.image != nil } ? .image : .text)
+        } else {
+            route = .module(provider)
+        }
+        let length = messages.reduce(0) { $0 + $1.content.text.count }
+        let raw = try await send(messages, via: route, temperature: temperature ?? 0.3,
+                                 maxTokens: max(2048, length * 3 + 500), deepThinking: deepThinking)
+        let result = stripSpecialTokens(raw)
+        guard !result.isEmpty else { throw AIServiceError.emptyResponse }
+        return result
     }
 
     // MARK: - Text Processing
     
     func processText(_ text: String, mode: PromptMode = .defaultTranslation, sourceLanguage: String = "Auto Detect", targetLanguage: String = "简体中文", userPerception: String? = nil, userInstruction: String? = nil) async throws -> String {
-        let service = try configuredService(usage: .text)
+        let route = try route(usage: .text)
         let preprocessedText = preprocessInput(text)
-        let deepThinking = UserDefaults.standard.bool(forKey: AppDefaults.Keys.enableDeepThinking)
-        let enhanceReview = service.shouldEnhanceReview(mode: mode, deepThinking: deepThinking)
+        let deepThinking = self.deepThinking
+        let enhanceReview = route.shouldEnhanceReview(mode: mode, deepThinking: deepThinking)
 
         // 生成任务 Prompt，与 API 推理控制分离
         let prompts = generatePrompts(
@@ -79,11 +131,8 @@ class AIService: ObservableObject {
             AIMessage(role: .user, text: prompts.user)
         ]
         
-        let config = service.requestConfig(temperature: getTemperature(for: preprocessedText),
-                                          maxTokens: getMaxTokens(for: preprocessedText), deepThinking: deepThinking)
-        let rawResult = try await executeWithRetry {
-            try await self.getProviderInstance(for: service.provider).send(messages: messages, config: config)
-        }
+        let rawResult = try await send(messages, via: route, temperature: getTemperature(for: preprocessedText),
+                                       maxTokens: getMaxTokens(for: preprocessedText), deepThinking: deepThinking)
 
         // 解析 JSON 响应
         let cleanJSON = extractJSON(from: rawResult)
@@ -115,21 +164,18 @@ class AIService: ObservableObject {
                       sourceLanguage: String = "Auto Detect", targetLanguage: String = "简体中文",
                       userPerception: String? = nil, userInstruction: String? = nil) async throws -> String {
         // Resolve once so the prompt and transport use the same capability snapshot.
-        let service = try configuredService(usage: .image)
+        let route = try route(usage: .image)
         guard let imageData = imageToData(image) else {
             throw AIServiceError.configuration("Failed to encode image.")
         }
-        let deepThinking = UserDefaults.standard.bool(forKey: AppDefaults.Keys.enableDeepThinking)
+        let deepThinking = self.deepThinking
         let instruction = PromptCoordinator.shared.generateImageSystemPrompt(
             mode: mode, sourceLanguage: sourceLanguage, targetLanguage: targetLanguage,
-            enhanceReview: service.shouldEnhanceReview(mode: mode, deepThinking: deepThinking),
+            enhanceReview: route.shouldEnhanceReview(mode: mode, deepThinking: deepThinking),
             customPerception: userPerception, customInstruction: userInstruction)
         let messages = [AIMessage(role: .system, text: instruction),
                         AIMessage(role: .user, text: "Please process this image according to the instructions.", image: imageData)]
-        let config = service.requestConfig(temperature: 0.1, maxTokens: 4096, deepThinking: deepThinking)
-        let rawResult = try await executeWithRetry {
-            try await self.getProviderInstance(for: service.provider).send(messages: messages, config: config)
-        }
+        let rawResult = try await send(messages, via: route, temperature: 0.1, maxTokens: 4096, deepThinking: deepThinking)
 
         let parsedResult = parseImageResult(rawResult)
         
@@ -197,7 +243,7 @@ class AIService: ObservableObject {
     }
     
     /// 将 NSImage 转换为 Data
-    private func imageToData(_ image: NSImage) -> Data? {
+    func imageToData(_ image: NSImage) -> Data? {
         guard let tiffData = image.tiffRepresentation,
               let bitmapImage = NSBitmapImageRep(data: tiffData),
               let pngData = bitmapImage.representation(using: .png, properties: [:]) else {
@@ -644,5 +690,14 @@ class AIService: ObservableObject {
         
         throw lastError ?? NSError(domain: "TranslationError", code: 99, 
                                    userInfo: [NSLocalizedDescriptionKey: "Unknown error after retries"])
+    }
+}
+
+private extension Array {
+    func asyncMap<T>(_ transform: (Element) async throws -> T) async rethrows -> [T] {
+        var result: [T] = []
+        result.reserveCapacity(count)
+        for element in self { result.append(try await transform(element)) }
+        return result
     }
 }

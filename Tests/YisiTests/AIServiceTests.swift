@@ -212,8 +212,6 @@ final class AIServiceTests: XCTestCase {
             XCTAssertTrue(prompt.contains("translation_result"))
             XCTAssertEqual(prompt.contains("check ambiguous meanings"), enabled)
         }
-        let preset = PromptPreset(id: UUID(), name: "test", inputPerception: "text", outputInstruction: "summarize")
-        XCTAssertFalse(PresetPromptBuilder().buildSystemPrompt(preset: preset).contains("thinking_process"))
         XCTAssertFalse(CustomPromptBuilder().buildSystemPrompt(inputContext: nil, outputRequirement: nil).contains("thinking_process"))
     }
 

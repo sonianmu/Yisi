@@ -26,6 +26,14 @@ struct TranslationView: View {
     @AppStorage("enable_custom_mode_popup") private var enableCustomModePopup: Bool = false
     @AppStorage(AppDefaults.Keys.presetModeEnabled) private var presetModeEnabled: Bool = AppDefaults.presetModeEnabled
     @AppStorage(AppDefaults.Keys.selectedPresetId) private var selectedPresetId: String = AppDefaults.selectedPresetId
+    @AppStorage(AppDefaults.Keys.externalTranslator) private var externalTranslatorID: String = ""
+    @ObservedObject private var modules = ModuleStore.shared
+    /// A preset module chosen by its own shortcut; overrides the selection in Settings for this popup.
+    private let shortcutModule: Module?
+    /// The running request. Replaced by the next one and cancelled when the popup closes.
+    @State private var work: Task<Void, Never>?
+    /// True while a module streams text into the output.
+    @State private var isStreaming: Bool = false
     @State private var customInputPerception: String = ""
     @State private var customOutputInstruction: String = ""
     @State private var inputPerceptionHeight: CGFloat = 24
@@ -36,47 +44,58 @@ struct TranslationView: View {
     /// 是否为图片模式（一旦进入图片模式，即使删除图片也保持）
     @State private var isImageMode: Bool = false
     
-    // Computed property for dynamic output placeholder
+    /// What this popup does with its input.
+    enum Mode: Equatable {
+        case translation
+        case custom
+        /// A hand-written “这是…，请…” preset.
+        case preset(PromptPreset)
+        /// A preset module built by the user's agent.
+        case module(Module)
+
+        var module: Module? {
+            if case .module(let module) = self { return module }
+            return nil
+        }
+
+        /// The built-in pipeline's prompt for this mode; modules bring their own.
+        var promptMode: PromptMode {
+            switch self {
+            case .custom: return .temporaryCustom
+            case .preset(let preset): return .userPreset(preset)
+            case .translation, .module: return .defaultTranslation
+            }
+        }
+    }
+
+    var mode: Mode {
+        if let shortcutModule { return .module(shortcutModule) }
+        if translationEngine == "external" { return .translation }
+        if !presetModeEnabled { return .custom }
+        if let id = Module.id(fromSelection: selectedPresetId) {
+            if let module = modules.module(id), module.role == .preset { return .module(module) }
+        } else if let preset = PromptPreset.saved().first(where: { $0.id.uuidString == selectedPresetId }) {
+            return .preset(preset)
+        }
+        return .translation
+    }
+
     var outputPlaceholder: String {
-        let mode = determineMode()
-        if translationEngine != "ai" {
+        if translationEngine != "ai" && mode == .translation {
             return "Translation result will appear here...".localized
         }
         switch mode {
-        case .defaultTranslation:
-            return "翻译结果将显示在这里...".localized
-        case .temporaryCustom:
-            return "处理结果将显示在这里...".localized
-        case .userPreset:
-            return "输出结果将显示在这里...".localized
+        case .translation: return "翻译结果将显示在这里...".localized
+        case .custom: return "处理结果将显示在这里...".localized
+        case .preset, .module: return "输出结果将显示在这里...".localized
         }
     }
-    
-    // Determine current mode based on settings
-    func determineMode() -> PromptMode {
-        if translationEngine == "external" { return .defaultTranslation }
-        if !presetModeEnabled {
-            return .temporaryCustom
-        }
-        
-        if selectedPresetId == AppDefaults.selectedPresetId {
-            return .defaultTranslation
-        }
-        
-        // Find user preset
-        if let data = UserDefaults.standard.data(forKey: AppDefaults.Keys.savedPresets),
-           let presets = try? JSONDecoder().decode([PromptPreset].self, from: data),
-           let selectedUUID = UUID(uuidString: selectedPresetId),
-           let preset = presets.first(where: { $0.id == selectedUUID }) {
-            return .userPreset(preset)
-        }
-        
-        return .defaultTranslation  // fallback
-    }
-    
-    init(originalText: String, errorMessage: String? = nil, imageContext: NSImage? = nil, startInImageMode: Bool = false) {
+
+    init(originalText: String, errorMessage: String? = nil, imageContext: NSImage? = nil, startInImageMode: Bool = false,
+         module: Module? = nil) {
         self.originalText = originalText
         self.errorMessage = errorMessage
+        self.shortcutModule = module
         _imageContext = State(initialValue: imageContext)
         _isImageMode = State(initialValue: imageContext != nil || startInImageMode)
         
@@ -95,7 +114,7 @@ struct TranslationView: View {
             }
             
             // Custom Mode Input Fields (Only visible in Temporary Custom Mode)
-            if determineMode() == .temporaryCustom {
+            if mode == .custom {
                 VStack(alignment: .leading, spacing: 16) {
                     // Narrative Input Structure
                     HStack(alignment: .top, spacing: 6) {
@@ -164,7 +183,7 @@ struct TranslationView: View {
             // Analysis Result Banner - REMOVED
             
             // Language Selectors - Top Position (Only in Default Translation Mode)
-            if determineMode() == .defaultTranslation {
+            if mode == .translation {
                 HStack {
                     HStack(spacing: 8) {
                         LanguageSelector(selection: $sourceLanguage, languages: Language.sourceLanguages)
@@ -371,27 +390,21 @@ struct TranslationView: View {
                 // Right Side: Actions
                 HStack(spacing: 12) {
                     // Smart Improvement Button (Text Mode Only, AI Engine Only, Feature Enabled)
-                    if !isImageMode && translationEngine == "ai" && enableImproveFeature {
+                    if !isImageMode && translationEngine == "ai" && enableImproveFeature && mode.module == nil {
                         SmartImprovementButton(
                             hasChanges: !translatedText.isEmpty && !originalAiTranslation.isEmpty && translatedText != originalAiTranslation,
                             isLoading: isImproving,
                             showSuccess: showImproveSuccess,
-                            action: {
-                                Task {
-                                    await improveWithAI()
-                                }
-                            }
+                            action: { start { await improveWithAI() } }
                         )
                     }
                     
                     // Yisi Button (The Living Verb)
-                    YisiButton(isLoading: isTranslating || isImproving) {
-                        Task {
-                            if isImageMode && imageContext != nil {
-                                await performImageRecognition()
-                            } else {
-                                await performTranslation()
-                            }
+                    YisiButton(isLoading: isTranslating || isStreaming || isImproving) {
+                        if isImageMode && imageContext != nil {
+                            start { await performImageRecognition() }
+                        } else {
+                            start { await performTranslation() }
                         }
                     }
                     .keyboardShortcut(.return, modifiers: .command)
@@ -417,21 +430,16 @@ struct TranslationView: View {
             if closeMode == "escKey" {
                 WindowManager.shared.close()
             }
-        }.task {
-            // Auto-process based on mode and content type
-            let mode = determineMode()
-            
-            if mode != .temporaryCustom {
-                // Image mode: auto-process if we have an image (e.g., from screenshot shortcut)
-                if isImageMode && imageContext != nil {
-                    await performImageRecognition()
-                }
-                // Text mode: auto-translate if we have text
-                else if !originalText.isEmpty {
-                    await performTranslation()
-                }
+        }.onAppear {
+            // Run straight away unless the user still has to write the "这是…，请…" instruction.
+            guard mode != .custom else { return }
+            if isImageMode && imageContext != nil {
+                start { await performImageRecognition() }
+            } else if !originalText.isEmpty {
+                start { await performTranslation() }
             }
         }
+        .onDisappear { work?.cancel() }
         .onChange(of: inputPerceptionHeight) { _, newValue in
             adjustWindowHeight(delta: newValue - 24) // 24 is base height
         }
@@ -503,10 +511,8 @@ struct TranslationView: View {
                 }
                 // Auto-process image (like text mode)
                 // Only in non-custom mode where user doesn't need to specify instructions first
-                if determineMode() != .temporaryCustom {
-                    Task {
-                        await performImageRecognition()
-                    }
+                if mode != .custom {
+                    start { await performImageRecognition() }
                 }
             }
         }
@@ -529,10 +535,8 @@ struct TranslationView: View {
                             self.translatedText = ""
                         }
                         // Auto-process image after drop (like text mode)
-                        if self.determineMode() != .temporaryCustom {
-                            Task {
-                                await self.performImageRecognition()
-                            }
+                        if self.mode != .custom {
+                            self.start { await self.performImageRecognition() }
                         }
                     }
                 }
@@ -552,10 +556,8 @@ struct TranslationView: View {
                             self.translatedText = ""
                         }
                         // Auto-process image after drop (like text mode)
-                        if self.determineMode() != .temporaryCustom {
-                            Task {
-                                await self.performImageRecognition()
-                            }
+                        if self.mode != .custom {
+                            self.start { await self.performImageRecognition() }
                         }
                     }
                 }
@@ -566,117 +568,138 @@ struct TranslationView: View {
         return false
     }
     
+    /// Starts a request, replacing any that is still running.
+    private func start(_ operation: @escaping @MainActor () async -> Void) {
+        work?.cancel()
+        work = Task { @MainActor in await operation() }
+    }
+
+    /// The translator module selected under Translation → Other Sources.
+    private var translatorModule: Module? {
+        modules.modules(for: .translator).first { $0.id == externalTranslatorID }
+    }
+
     private func performTranslation() async {
         guard !originalText.isEmpty else { return }
+        switch mode {
+        case .module(let module):
+            await run(module, text: originalText, image: nil)
+            return
+        case .translation where translationEngine == "external":
+            await runTranslator(text: originalText, image: nil)
+            return
+        default:
+            break
+        }
         isTranslating = true
         do {
-            let mode = determineMode()
-            
-            // Use System Translation only for Default Translation mode with system engine
-            if translationEngine == "external" {
-                translatedText = try await performExternalTranslation(originalText)
-            } else if translationEngine == "system" && mode == .defaultTranslation {
+            let promptMode = mode.promptMode
+            if translationEngine == "system" && promptMode == .defaultTranslation {
                 translatedText = try await performSystemTranslation()
             } else {
                 translatedText = try await AIService.shared.processText(
                     originalText,
-                    mode: mode,
-                    sourceLanguage: sourceLanguage.rawValue, 
+                    mode: promptMode,
+                    sourceLanguage: sourceLanguage.rawValue,
                     targetLanguage: targetLanguage.rawValue,
-                    userPerception: mode == .temporaryCustom ? customInputPerception : nil,
-                    userInstruction: mode == .temporaryCustom ? customOutputInstruction : nil
+                    userPerception: promptMode == .temporaryCustom ? customInputPerception : nil,
+                    userInstruction: promptMode == .temporaryCustom ? customOutputInstruction : nil
                 )
             }
+            try Task.checkCancellation()
             originalAiTranslation = translatedText
             savedOriginalText = originalText
             withAnimation { showLanguagePackPrompt = false }
-        } catch let error as SystemTranslationError {
-            if case .languagePackNotInstalled(let src, let tgt) = error {
-                missingPackSource = src
-                missingPackTarget = tgt
-                withAnimation(.easeOut(duration: 0.2)) {
-                    showLanguagePackPrompt = true
-                }
-                translatedText = ""
-            } else {
-                print("Translation Error: \(error.localizedDescription)")
-                translatedText = "Error: \(error.localizedDescription)"
-            }
         } catch {
-            print("Translation Error: \(error.localizedDescription)")
-            translatedText = "Error: \(error.localizedDescription)"
+            show(error)
         }
         isTranslating = false
+    }
+
+    /// Streams a module's answer into the output. Text appears as soon as the first chunk arrives.
+    private func run(_ module: Module, text: String, image: NSImage?, recordHistory: Bool = true) async {
+        isTranslating = true
+        isStreaming = false
+        translatedText = ""
+        defer { isTranslating = false; isStreaming = false }
+        do {
+            let request = ModuleRequest(text: text, image: image.flatMap(AIService.shared.imageToData),
+                                        source: sourceLanguage.code, target: targetLanguage.code)
+            var output = ""
+            for try await chunk in try modules.run(module, request) {
+                output += chunk
+                if !isStreaming, !output.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    isStreaming = true
+                    isTranslating = false
+                }
+                if isStreaming { translatedText = output }
+            }
+            let result = output.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !result.isEmpty else { throw ModuleError.emptyResult }
+            translatedText = result
+            if recordHistory {
+                HistoryManager.shared.addHistory(sourceText: text, targetText: result, sourceLanguage: sourceLanguage.rawValue,
+                                                 targetLanguage: targetLanguage.rawValue, module: module, image: image)
+            }
+        } catch is CancellationError {
+        } catch {
+            translatedText = "\(module.name) · \(error.localizedDescription)"
+        }
+    }
+
+    private func runTranslator(text: String, image: NSImage?) async {
+        guard let module = translatorModule else {
+            translatedText = "Choose a translation source in Settings → Translation → Other Sources.".localized
+            return
+        }
+        await run(module, text: text, image: image, recordHistory: false)
+    }
+
+    private func show(_ error: Error) {
+        if error is CancellationError { return }
+        if let error = error as? SystemTranslationError, case .languagePackNotInstalled(let src, let tgt) = error {
+            missingPackSource = src
+            missingPackTarget = tgt
+            withAnimation(.easeOut(duration: 0.2)) { showLanguagePackPrompt = true }
+            translatedText = ""
+            return
+        }
+        translatedText = "Error: \(error.localizedDescription)"
     }
     
     /// System Translation using macOS native Translation API
     private func performSystemTranslation() async throws -> String {
-        let targetLang = mapLanguageToSystemCode(targetLanguage)
-        let sourceLang = sourceLanguage == .auto ? nil : mapLanguageToSystemCode(sourceLanguage)
-        
-        return try await SystemTranslation.translate(
+        try await SystemTranslation.translate(
             originalText,
-            to: targetLang,
-            from: sourceLang
+            to: targetLanguage.code,
+            from: sourceLanguage == .auto ? nil : sourceLanguage.code
         )
     }
 
-    private func performExternalTranslation(_ text: String) async throws -> String {
-        try await TranslationSourceStore.shared.translate(
-            text, source: sourceLanguage == .auto ? "auto" : mapLanguageToSystemCode(sourceLanguage),
-            target: mapLanguageToSystemCode(targetLanguage))
-    }
-    
-    /// Map Language enum to system translation language codes
-    private func mapLanguageToSystemCode(_ language: Language) -> String {
-        switch language {
-        case .auto: return "en"
-        case .english: return "en"
-        case .simplifiedChinese: return "zh-Hans"
-        case .traditionalChinese: return "zh-Hant"
-        case .japanese: return "ja"
-        case .korean: return "ko"
-        case .french: return "fr"
-        case .german: return "de"
-        case .spanish: return "es"
-        case .russian: return "ru"
-        case .arabic: return "ar"
-        case .thai: return "th"
-        case .vietnamese: return "vi"
-        }
-    }
-    
     /// 图片识别 - 使用 PromptCoordinator 构建指令
     private func performImageRecognition() async {
         guard let image = imageContext else { return }
+        switch mode {
+        case .module(let module):
+            await run(module, text: "", image: image)
+            return
+        case .translation where translationEngine == "external":
+            await runTranslator(text: "", image: image)
+            return
+        default:
+            break
+        }
         isTranslating = true
-        
         do {
-            let mode = determineMode()
-            
-            // Use LocalVision + System Translation when system engine is selected
-            if translationEngine == "external" {
+            let promptMode = mode.promptMode
+            if translationEngine == "system" && promptMode == .defaultTranslation {
+                // Local OCR, then the system translation model.
                 let extractedText = try await LocalVisionService.shared.recognizeText(from: image)
-                translatedText = try await performExternalTranslation(extractedText)
-            } else if translationEngine == "system" && mode == .defaultTranslation {
-                // Step 1: Extract text from image using LocalVisionService
-                print("[SystemEngine] Starting OCR...")
-                let extractedText = try await LocalVisionService.shared.recognizeText(from: image)
-                print("[SystemEngine] OCR Result: \(extractedText.prefix(100))...")
-                
-                // Step 2: Translate the extracted text using System Translation
-                let targetLang = mapLanguageToSystemCode(targetLanguage)
-                // Pass nil for auto-detect to let system handle language detection
-                let sourceLang = sourceLanguage == .auto ? nil : mapLanguageToSystemCode(sourceLanguage)
-                
-                print("[SystemEngine] Translating from \(sourceLang ?? "auto") to \(targetLang)...")
-                
                 translatedText = try await SystemTranslation.translate(
                     extractedText,
-                    to: targetLang,
-                    from: sourceLang
+                    to: targetLanguage.code,
+                    from: sourceLanguage == .auto ? nil : sourceLanguage.code
                 )
-                print("[SystemEngine] Translation success!")
             } else {
                 let imageStrategy = UserDefaults.standard.string(forKey: AppDefaults.Keys.imageProcessingStrategy) ?? "ai_vision"
 
@@ -696,42 +719,27 @@ struct TranslationView: View {
 
                     translatedText = try await AIService.shared.processText(
                         wrappedText,
-                        mode: mode,
+                        mode: promptMode,
                         sourceLanguage: sourceLanguage.rawValue,
                         targetLanguage: targetLanguage.rawValue,
-                        userPerception: mode == .temporaryCustom ? customInputPerception : nil,
-                        userInstruction: mode == .temporaryCustom ? customOutputInstruction : nil
+                        userPerception: promptMode == .temporaryCustom ? customInputPerception : nil,
+                        userInstruction: promptMode == .temporaryCustom ? customOutputInstruction : nil
                     )
                 } else {
                     translatedText = try await AIService.shared.processImage(
-                        image, mode: mode, sourceLanguage: sourceLanguage.rawValue,
+                        image, mode: promptMode, sourceLanguage: sourceLanguage.rawValue,
                         targetLanguage: targetLanguage.rawValue,
-                        userPerception: mode == .temporaryCustom ? customInputPerception : nil,
-                        userInstruction: mode == .temporaryCustom ? customOutputInstruction : nil)
-
+                        userPerception: promptMode == .temporaryCustom ? customInputPerception : nil,
+                        userInstruction: promptMode == .temporaryCustom ? customOutputInstruction : nil)
                 }
             }
-            
+            try Task.checkCancellation()
             originalAiTranslation = translatedText
             savedOriginalText = originalText
             withAnimation { showLanguagePackPrompt = false }
-        } catch let error as SystemTranslationError {
-            if case .languagePackNotInstalled(let src, let tgt) = error {
-                missingPackSource = src
-                missingPackTarget = tgt
-                withAnimation(.easeOut(duration: 0.2)) {
-                    showLanguagePackPrompt = true
-                }
-                translatedText = ""
-            } else {
-                print("Image Recognition Error: \(error.localizedDescription)")
-                translatedText = "Error: \(error.localizedDescription)"
-            }
         } catch {
-            print("Image Recognition Error: \(error.localizedDescription)")
-            translatedText = "Error: \(error.localizedDescription)"
+            show(error)
         }
-        
         isTranslating = false
     }
     

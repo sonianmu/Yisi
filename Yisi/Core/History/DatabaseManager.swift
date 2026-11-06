@@ -4,7 +4,6 @@ import SQLite3
 class DatabaseManager {
     static let shared = DatabaseManager()
     private var db: OpaquePointer?
-    private let dbName = "YisiHistory.sqlite"
     
     // 串行队列保护 SQLite 访问（SQLite 默认不是线程安全的）
     private let dbQueue = DispatchQueue(label: "com.yisi.database", qos: .userInitiated)
@@ -18,11 +17,8 @@ class DatabaseManager {
     }
     
     private func getDatabasePath() -> String {
-        let fileManager = FileManager.default
-        guard let documentsUrl = fileManager.urls(for: .documentDirectory, in: .userDomainMask).first else {
-            return ""
-        }
-        return documentsUrl.appendingPathComponent(dbName).path
+        try? FileManager.default.createDirectory(at: YisiHome.shared.data, withIntermediateDirectories: true)
+        return YisiHome.shared.historyDatabase.path
     }
     
     private func openDatabase() {
@@ -76,6 +72,11 @@ class DatabaseManager {
         sqlite3_finalize(statement)
     }
     
+    /// A consistent copy for export, taken through the open connection.
+    func backup(to url: URL) throws {
+        try dbQueue.sync { try SQLiteBackup.vacuum(db, into: url) }
+    }
+
     func insert(item: TranslationHistoryItem) {
         dbQueue.async { [weak self] in
             self?.insertInternal(item: item)

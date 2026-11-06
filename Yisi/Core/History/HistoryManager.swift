@@ -247,8 +247,7 @@ class HistoryManager: ObservableObject {
     
     private func getImageDirectoryURL() -> URL? {
         let fileManager = FileManager.default
-        guard let documentsUrl = fileManager.urls(for: .documentDirectory, in: .userDomainMask).first else { return nil }
-        let imageDir = documentsUrl.appendingPathComponent(imageDirectoryName)
+        let imageDir = YisiHome.shared.data.appendingPathComponent(imageDirectoryName)
         if !fileManager.fileExists(atPath: imageDir.path) {
             try? fileManager.createDirectory(at: imageDir, withIntermediateDirectories: true)
         }
@@ -267,9 +266,7 @@ class HistoryManager: ObservableObject {
     }
 
     func getFullImagePath(_ relativePath: String) -> URL? {
-        let fileManager = FileManager.default
-        guard let documentsUrl = fileManager.urls(for: .documentDirectory, in: .userDomainMask).first else { return nil }
-        return documentsUrl.appendingPathComponent(relativePath)
+        YisiHome.shared.data.appendingPathComponent(relativePath)
     }
 
     private func deleteImageFromDisk(_ relativePath: String) {
@@ -293,6 +290,17 @@ class HistoryManager: ObservableObject {
             imagePath = saveImageToDisk(img)
         }
         let item = TranslationHistoryItem(id: id, sourceText: sourceText, targetText: targetText, sourceLanguage: sourceLanguage, targetLanguage: targetLanguage, timestamp: timestamp, type: type, presetName: presetName, customPrompt: customPrompt, imagePath: imagePath)
+        DispatchQueue.global(qos: .userInitiated).async { DatabaseManager.shared.insert(item: item) }
+        self.historyItems.insert(item, at: 0)
+    }
+
+    /// Results of preset and translator modules, recorded under the module's name.
+    func addHistory(sourceText: String, targetText: String, sourceLanguage: String, targetLanguage: String,
+                    module: Module, image: NSImage? = nil) {
+        let item = TranslationHistoryItem(id: UUID(), sourceText: sourceText, targetText: targetText,
+                                          sourceLanguage: sourceLanguage, targetLanguage: targetLanguage, timestamp: Date(),
+                                          type: module.role == .preset ? .preset : .translation, presetName: module.name,
+                                          customPrompt: nil, imagePath: image.flatMap(saveImageToDisk))
         DispatchQueue.global(qos: .userInitiated).async { DatabaseManager.shared.insert(item: item) }
         self.historyItems.insert(item, at: 0)
     }
