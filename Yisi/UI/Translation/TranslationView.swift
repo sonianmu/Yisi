@@ -28,8 +28,8 @@ struct TranslationView: View {
     @AppStorage(AppDefaults.Keys.selectedPresetId) private var selectedPresetId: String = AppDefaults.selectedPresetId
     @AppStorage(AppDefaults.Keys.externalTranslator) private var externalTranslatorID: String = ""
     @ObservedObject private var modules = ModuleStore.shared
-    /// A preset module chosen by its own shortcut; overrides the selection in Settings for this popup.
-    private let shortcutModule: Module?
+    /// A preset chosen by its own shortcut; overrides the mode chosen in Settings for this popup.
+    private let shortcutMode: Mode?
     /// The running request. Replaced by the next one and cancelled when the popup closes.
     @State private var work: Task<Void, Never>?
     /// True while a module streams text into the output.
@@ -69,7 +69,7 @@ struct TranslationView: View {
     }
 
     var mode: Mode {
-        if let shortcutModule { return .module(shortcutModule) }
+        if let shortcutMode { return shortcutMode }
         if translationEngine == "external" { return .translation }
         if !presetModeEnabled { return .custom }
         if let id = Module.id(fromSelection: selectedPresetId) {
@@ -92,10 +92,10 @@ struct TranslationView: View {
     }
 
     init(originalText: String, errorMessage: String? = nil, imageContext: NSImage? = nil, startInImageMode: Bool = false,
-         module: Module? = nil) {
+         mode: Mode? = nil) {
         self.originalText = originalText
         self.errorMessage = errorMessage
-        self.shortcutModule = module
+        self.shortcutMode = mode
         _imageContext = State(initialValue: imageContext)
         _isImageMode = State(initialValue: imageContext != nil || startInImageMode)
         

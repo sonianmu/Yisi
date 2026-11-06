@@ -367,12 +367,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             self?.handleScreenshotShortcut()
         }
 
-        // 预设模块自己的快捷键
-        GlobalShortcutManager.shared.onModuleTriggered = { [weak self] id in
-            self?.handleModuleShortcut(id)
+        // 每个预设自己的快捷键
+        GlobalShortcutManager.shared.onPresetTriggered = { [weak self] selection in
+            self?.handlePresetShortcut(selection)
         }
         moduleObservation = ModuleStore.shared.$modules.sink { modules in
-            GlobalShortcutManager.shared.registerModuleShortcuts(modules)
+            // Published before the store changes, so the new list comes from here.
+            GlobalShortcutManager.shared.registerPresetShortcuts(
+                PresetShortcuts.bindings(presets: PromptPreset.saved(), modules: modules))
         }
 
         // 截图界面双击 -> 打开图片上传窗口
@@ -385,15 +387,19 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         GlobalShortcutManager.shared.startMonitoring()
     }
     
-    /// A preset's own shortcut: screenshot-only presets start a capture, the rest capture the selection.
-    private func handleModuleShortcut(_ id: String) {
-        guard let module = ModuleStore.shared.module(id) else { return }
-        if module.manifest.inputs == [.image] {
-            ScreenCaptureManager.shared.startCapture { image in
-                DispatchQueue.main.async { WindowManager.shared.showWithImage(image: image, module: module) }
+    /// A preset's own shortcut: screenshot-only modules start a capture, the rest capture the selection.
+    private func handlePresetShortcut(_ selection: String) {
+        if let id = Module.id(fromSelection: selection) {
+            guard let module = ModuleStore.shared.module(id), module.role == .preset else { return }
+            if module.manifest.inputs == [.image] {
+                ScreenCaptureManager.shared.startCapture { image in
+                    DispatchQueue.main.async { WindowManager.shared.showWithImage(image: image, mode: .module(module)) }
+                }
+            } else {
+                handleShortcut(mode: .module(module))
             }
-        } else {
-            handleShortcut(module: module)
+        } else if let preset = PromptPreset.saved().first(where: { $0.id.uuidString == selection }) {
+            handleShortcut(mode: .preset(preset))
         }
     }
 
@@ -500,7 +506,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         welcomeWindow = window
     }
 
-    private func handleShortcut(module: Module? = nil) {
+    /// `mode` overrides the mode chosen in Settings for this popup, as a preset's own shortcut does.
+    private func handleShortcut(mode: TranslationView.Mode? = nil) {
         // Capture text synchronously on main thread BEFORE any async work.
         // AX API must read the focused element while the source app still has focus.
         let immediateResult = TextCaptureService.shared.captureViaAccessibilityPublic()
@@ -529,7 +536,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             let finalError = error
             
             await MainActor.run {
-                WindowManager.shared.show(text: finalText, error: finalError, module: module)
+                WindowManager.shared.show(text: finalText, error: finalError, mode: mode)
             }
         }
     }

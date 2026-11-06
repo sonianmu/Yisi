@@ -37,9 +37,9 @@ private func hotKeyEventHandler(
             manager.onScreenshotTriggered?()
         }
     default:
-        guard let module = manager.moduleID(for: hotKeyID.id) else { return OSStatus(eventNotHandledErr) }
+        guard let selection = manager.presetSelection(for: hotKeyID.id) else { return OSStatus(eventNotHandledErr) }
         DispatchQueue.main.async {
-            manager.onModuleTriggered?(module)
+            manager.onPresetTriggered?(selection)
         }
     }
     return noErr
@@ -58,8 +58,8 @@ class GlobalShortcutManager: ObservableObject {
         }()
         static let translateID: UInt32 = 1
         static let screenshotID: UInt32 = 2
-        /// Preset modules use ids from here on, in the order they are registered.
-        static let firstModuleID: UInt32 = 100
+        /// Presets use ids from here on, in the order they are registered.
+        static let firstPresetID: UInt32 = 100
     }
 
     private var eventHandler: EventHandlerRef?
@@ -70,13 +70,13 @@ class GlobalShortcutManager: ObservableObject {
 
     var onShortcutTriggered: (() -> Void)?
     var onScreenshotTriggered: (() -> Void)?
-    /// Called with a preset module's id when its own shortcut is pressed.
-    var onModuleTriggered: ((String) -> Void)?
+    /// Called with a preset's selection id when its own shortcut is pressed.
+    var onPresetTriggered: ((String) -> Void)?
 
-    /// Why a module's shortcut is not active, keyed by module id.
-    @Published private(set) var moduleShortcutIssues: [String: String] = [:]
-    private var moduleHotKeys: [UInt32: (module: String, ref: EventHotKeyRef)] = [:]
-    private var registeredModules: [Module] = []
+    /// Why a preset's shortcut is not active, keyed by selection id.
+    @Published private(set) var presetShortcutIssues: [String: String] = [:]
+    private var presetHotKeys: [UInt32: (selection: String, ref: EventHotKeyRef)] = [:]
+    private var presetBindings: [PresetShortcuts.Binding] = []
 
     private var translateKeyCode: UInt16
     private var translateModifiers: NSEvent.ModifierFlags
@@ -123,7 +123,7 @@ class GlobalShortcutManager: ObservableObject {
         UserDefaults.standard.set(Int(keyCode), forKey: AppDefaults.Keys.globalShortcutKey)
         UserDefaults.standard.set(Int(modifiers.rawValue), forKey: AppDefaults.Keys.globalShortcutModifiers)
         registerTranslateHotKey()
-        registerModuleShortcuts(registeredModules)
+        registerPresetShortcuts(presetBindings)
     }
 
     func updateScreenshotShortcut(keyCode: UInt16, modifiers: NSEvent.ModifierFlags) {
@@ -132,46 +132,51 @@ class GlobalShortcutManager: ObservableObject {
         UserDefaults.standard.set(Int(keyCode), forKey: AppDefaults.Keys.screenshotShortcutKey)
         UserDefaults.standard.set(Int(modifiers.rawValue), forKey: AppDefaults.Keys.screenshotShortcutModifiers)
         registerScreenshotHotKey()
-        registerModuleShortcuts(registeredModules)
+        registerPresetShortcuts(presetBindings)
     }
 
     var currentScreenshotKeyCode: UInt16 { screenshotKeyCode }
     var currentScreenshotModifiers: NSEvent.ModifierFlags { screenshotModifiers }
 
-    // MARK: - Module shortcuts
+    // MARK: - Preset shortcuts
 
-    /// Registers every preset module's shortcut. Conflicts are reported, never silently overridden.
-    func registerModuleShortcuts(_ modules: [Module]) {
-        for (_, entry) in moduleHotKeys { UnregisterEventHotKey(entry.ref) }
-        moduleHotKeys = [:]
-        registeredModules = modules.filter { $0.role == .preset && $0.manifest.shortcut != nil }
+    /// Re-reads every preset's shortcut, hand-written and from modules.
+    @MainActor
+    func refreshPresetShortcuts() {
+        registerPresetShortcuts(PresetShortcuts.bindings(presets: PromptPreset.saved(), modules: ModuleStore.shared.modules))
+    }
+
+    /// Registers each preset's shortcut. Conflicts are reported, never silently overridden.
+    func registerPresetShortcuts(_ bindings: [PresetShortcuts.Binding]) {
+        for (_, entry) in presetHotKeys { UnregisterEventHotKey(entry.ref) }
+        presetHotKeys = [:]
+        presetBindings = bindings
         var issues: [String: String] = [:]
         var taken: [KeyCombo: String] = [
             KeyCombo(keyCode: translateKeyCode, modifiers: translateModifiers): "Activate".localized,
             KeyCombo(keyCode: screenshotKeyCode, modifiers: screenshotModifiers): "Screenshot".localized,
         ]
-        for (index, module) in registeredModules.enumerated() {
-            guard let text = module.manifest.shortcut, let combo = try? KeyCombo(text) else { continue }
-            if let owner = taken[combo] {
-                issues[module.id] = String(format: "Same shortcut as “%@”".localized, owner)
+        for (index, binding) in bindings.enumerated() {
+            if let owner = taken[binding.combo] {
+                issues[binding.selection] = String(format: "Same shortcut as “%@”".localized, owner)
                 continue
             }
-            let id = HotKeyConfig.firstModuleID + UInt32(index)
+            let id = HotKeyConfig.firstPresetID + UInt32(index)
             var ref: EventHotKeyRef?
-            let status = RegisterEventHotKey(UInt32(combo.keyCode), carbonModifiers(from: combo.modifiers),
+            let status = RegisterEventHotKey(UInt32(binding.combo.keyCode), carbonModifiers(from: binding.combo.modifiers),
                                              EventHotKeyID(signature: HotKeyConfig.signature, id: id),
                                              GetApplicationEventTarget(), 0, &ref)
             if status == noErr, let ref {
-                moduleHotKeys[id] = (module.id, ref)
-                taken[combo] = module.name
+                presetHotKeys[id] = (binding.selection, ref)
+                taken[binding.combo] = binding.name
             } else {
-                issues[module.id] = "Shortcut is used by another app".localized
+                issues[binding.selection] = "Shortcut is used by another app".localized
             }
         }
-        moduleShortcutIssues = issues
+        presetShortcutIssues = issues
     }
 
-    fileprivate func moduleID(for hotKey: UInt32) -> String? { moduleHotKeys[hotKey]?.module }
+    fileprivate func presetSelection(for hotKey: UInt32) -> String? { presetHotKeys[hotKey]?.selection }
 
     // MARK: - Carbon Hot Key Registration
 
@@ -180,7 +185,7 @@ class GlobalShortcutManager: ObservableObject {
         installEventHandler()
         registerTranslateHotKey()
         registerScreenshotHotKey()
-        registerModuleShortcuts(registeredModules)
+        registerPresetShortcuts(presetBindings)
     }
 
     private func installEventHandler() {
@@ -257,8 +262,8 @@ class GlobalShortcutManager: ObservableObject {
     private func stopMonitoring() {
         unregisterTranslateHotKey()
         unregisterScreenshotHotKey()
-        for (_, entry) in moduleHotKeys { UnregisterEventHotKey(entry.ref) }
-        moduleHotKeys = [:]
+        for (_, entry) in presetHotKeys { UnregisterEventHotKey(entry.ref) }
+        presetHotKeys = [:]
         if let handler = eventHandler {
             RemoveEventHandler(handler)
             eventHandler = nil

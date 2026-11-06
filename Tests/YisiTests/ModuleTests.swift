@@ -131,6 +131,43 @@ final class ModuleManifestTests: XCTestCase {
     }
 }
 
+// MARK: - Preset shortcuts
+
+final class PresetShortcutTests: XCTestCase {
+    private var defaults: UserDefaults!
+    private let domain = "yisi-preset-shortcuts-\(UUID().uuidString)"
+
+    override func setUpWithError() throws {
+        defaults = try XCTUnwrap(UserDefaults(suiteName: domain))
+    }
+
+    override func tearDown() {
+        defaults.removePersistentDomain(forName: domain)
+    }
+
+    func testEveryPresetCanHaveAShortcutAndSettingsOverrideTheModuleFile() throws {
+        let home = try temporaryHome()
+        let module = try install(["shortcut": "ctrl+option+r", "prompt": ["steps": [["user": "{{text}}"]]]], id: "reply", in: home)
+        let written = PromptPreset(id: UUID(), name: "Polish", inputPerception: "这是", outputInstruction: "请")
+
+        // The module's own shortcut is the default; a hand-written preset has none until one is set.
+        XCTAssertEqual(PresetShortcuts.bindings(presets: [written], modules: [module], defaults: defaults).map(\.selection),
+                       [module.selection])
+
+        PresetShortcuts.set(try KeyCombo("cmd+option+p"), for: written.id.uuidString, defaults: defaults)
+        PresetShortcuts.set(try KeyCombo("ctrl+option+y"), for: module.selection, defaults: defaults)
+        let bindings = PresetShortcuts.bindings(presets: [written], modules: [module], defaults: defaults)
+        XCTAssertEqual(bindings.map(\.combo.displayString), ["⌥⌘P", "⌃⌥Y"])
+        XCTAssertEqual(bindings.map(\.name), ["Polish", module.name])
+
+        // Clearing keeps the module's default off; forgetting a deleted preset drops its entry.
+        PresetShortcuts.set(nil, for: module.selection, defaults: defaults)
+        PresetShortcuts.remove(written.id.uuidString, defaults: defaults)
+        XCTAssertTrue(PresetShortcuts.bindings(presets: [written], modules: [module], defaults: defaults).isEmpty)
+        XCTAssertEqual(try String(contentsOf: module.manifestURL, encoding: .utf8).contains("ctrl+option+r"), true)
+    }
+}
+
 // MARK: - Templates and trust
 
 final class ModuleTemplateTests: XCTestCase {

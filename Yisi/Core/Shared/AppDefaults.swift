@@ -31,6 +31,7 @@ enum AppDefaults {
         static let selectedPresetId = "selected_preset_id"
         static let savedPresets = "saved_presets"  // hand-written “这是…，请…” presets
         static let externalTranslator = "external_translation_source"
+        static let presetShortcuts = "preset_shortcuts"  // [preset selection: "ctrl+option+r"]
 
         // AI Service - Text
         static let apiProvider = "api_provider"

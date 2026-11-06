@@ -29,7 +29,7 @@ overwritten by updates, and modules travel with your exported data.
 
 输入永远是文字或图片，输出永远是文字。
 
-在 **设置 → 模式** 里手写的「这是…，请…」预设不是模块，仍然在 Yisi 内直接编辑。
+在 **设置 → 模式** 里手写的「这是…，请…」预设不是模块，仍然在 Yisi 内直接编辑。每个预设（手写的和模块的）都可以在那里录制自己的快捷键；模块清单里的 `shortcut` 只是默认值。
 
 ## 交给你的 Agent
 

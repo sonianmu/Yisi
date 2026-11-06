@@ -66,7 +66,7 @@ enum DataArchive {
             keys.appTheme, keys.popupLiquidGlass, keys.accentColorHex, keys.popupTintHex, keys.popupTintStrength,
             keys.appLanguage, keys.closeMode, keys.autoCheckUpdates, keys.translationEngine,
             keys.defaultSourceLanguage, keys.defaultTargetLanguage, keys.enableImproveFeature, keys.presetModeEnabled,
-            keys.selectedPresetId, keys.savedPresets, keys.externalTranslator, keys.apiProvider, keys.imageApiProvider,
+            keys.selectedPresetId, keys.savedPresets, keys.presetShortcuts, keys.externalTranslator, keys.apiProvider, keys.imageApiProvider,
             keys.enableDeepThinking, keys.imageProcessingStrategy, keys.applyApiToImageMode,
             keys.globalShortcutKey, keys.globalShortcutModifiers, keys.screenshotShortcutKey, keys.screenshotShortcutModifiers,
             "enable_custom_mode_popup",

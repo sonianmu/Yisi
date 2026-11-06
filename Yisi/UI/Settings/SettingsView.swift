@@ -688,6 +688,7 @@ struct ModesSettingsView: View {
                                     description: "\(preset.inputPerception.prefix(30))...",
                                     isSelected: selectedPresetId == preset.id.uuidString,
                                     onSelect: { selectedPresetId = preset.id.uuidString },
+                                    shortcut: PresetShortcutField(selection: preset.id.uuidString),
                                     onEdit: {
                                         editingPreset = preset
                                     },
@@ -747,7 +748,8 @@ struct ModesSettingsView: View {
                         name: module.name,
                         description: status == .ready ? (module.manifest.description ?? module.meta) : status.label,
                         isSelected: selectedPresetId == module.selection,
-                        onSelect: { selectedPresetId = module.selection }
+                        onSelect: { selectedPresetId = module.selection },
+                        shortcut: PresetShortcutField(selection: module.selection, fallback: module.manifest.shortcut)
                     )
                 }
             }
@@ -761,12 +763,14 @@ struct ModesSettingsView: View {
     private func addPreset(_ preset: PromptPreset) {
         presets.append(preset)
         PromptPreset.save(presets)
+        GlobalShortcutManager.shared.refreshPresetShortcuts()
     }
 
     private func updatePreset(_ preset: PromptPreset) {
         if let index = presets.firstIndex(where: { $0.id == preset.id }) {
             presets[index] = preset
             PromptPreset.save(presets)
+            GlobalShortcutManager.shared.refreshPresetShortcuts()
         }
     }
 
@@ -777,6 +781,8 @@ struct ModesSettingsView: View {
             selectedPresetId = AppDefaults.selectedPresetId
         }
         PromptPreset.save(presets)
+        PresetShortcuts.remove(preset.id.uuidString)
+        GlobalShortcutManager.shared.refreshPresetShortcuts()
     }
 }
 
@@ -1173,6 +1179,7 @@ struct PresetRadioRow: View {
     let description: String
     let isSelected: Bool
     let onSelect: () -> Void
+    var shortcut: PresetShortcutField? = nil
     var onEdit: (() -> Void)? = nil
     var onDelete: (() -> Void)? = nil
     
@@ -1197,25 +1204,29 @@ struct PresetRadioRow: View {
             }
             
             Spacer()
-            
-            // Actions (only for user presets)
-            if let onEdit = onEdit, let onDelete = onDelete {
+
+            if let shortcut { shortcut }
+
+            // Actions (only for user presets). Rows with a shortcut keep the space, so shortcuts line up.
+            if onEdit != nil || shortcut != nil {
                 HStack(spacing: 8) {
-                    Button(action: onEdit) {
+                    Button(action: { onEdit?() }) {
                         Image(systemName: "pencil")
                             .font(.system(size: 12))
                             .foregroundColor(.secondary)
                     }
                     .buttonStyle(.plain)
-                    
-                    Button(action: onDelete) {
+
+                    Button(action: { onDelete?() }) {
                         Image(systemName: "trash")
                             .font(.system(size: 12))
                             .foregroundColor(.secondary.opacity(0.8))
                     }
                     .buttonStyle(.plain)
                 }
-                .opacity(0.6)
+                .opacity(onEdit == nil ? 0 : 0.6)
+                .allowsHitTesting(onEdit != nil)
+                .accessibilityHidden(onEdit == nil)
             }
         }
         .padding(.vertical, 8) // Increased vertical padding for breathing room

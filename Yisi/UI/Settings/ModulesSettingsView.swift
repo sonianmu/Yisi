@@ -38,7 +38,9 @@ extension Module {
     var meta: String {
         var parts = [kind]
         if case .http(let handler) = manifest.handler { parts.append(handler.destination) }
-        if let shortcut = manifest.shortcut, let combo = try? KeyCombo(shortcut) { parts.append(combo.displayString) }
+        if role == .preset, let combo = PresetShortcuts.combo(for: selection, fallback: manifest.shortcut) {
+            parts.append(combo.displayString)
+        }
         return parts.joined(separator: " · ")
     }
 }
@@ -51,7 +53,7 @@ enum ModuleStatus: Equatable {
         case .approvalRequired?: self = .needsApproval
         case .missingSecret(let name)?: self = .needsKey(name)
         default:
-            if let issue = GlobalShortcutManager.shared.moduleShortcutIssues[module.id] { self = .shortcut(issue) }
+            if let issue = GlobalShortcutManager.shared.presetShortcutIssues[module.selection] { self = .shortcut(issue) }
             else { self = .ready }
         }
     }

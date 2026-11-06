@@ -151,7 +151,7 @@ No other fields are accepted.
 | `name` | shown in Modes and in the popup |
 | `description` | optional, one line |
 | `accepts` | `["text"]` (default), `["image"]` or both. A screenshot reaching a text-only preset arrives as OCR text. A preset that accepts only images starts a screen capture when its shortcut is pressed |
-| `shortcut` | optional. `cmd`, `ctrl`, `option`, `shift` joined with `+` and one key (`a`–`z`, `0`–`9`, `f1`–`f12`, `space`, punctuation); at least one of cmd/ctrl/option. Conflicts are shown in Settings |
+| `shortcut` | optional. `cmd`, `ctrl`, `option`, `shift` joined with `+` and one key (`a`–`z`, `0`–`9`, `f1`–`f12`, `space`, punctuation); at least one of cmd/ctrl/option. A default: the user can change or clear it under Settings → Modes, which never edits this file. Conflicts are shown there |
 | `prompt`, `http` or `command` | exactly one |
 
 No other fields are accepted. Placeholders: `{{text}}`; `{{previous}}` in later prompt steps;

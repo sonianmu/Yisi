@@ -25,7 +25,7 @@ enum SettingsSnapshots {
         }
         if let shout = store.module("shout") {
             store.allow(shout)
-            views.append(("popup-module", AnyView(TranslationView(originalText: "Modules make Yisi yours.", module: shout)
+            views.append(("popup-module", AnyView(TranslationView(originalText: "Modules make Yisi yours.", mode: .module(shout))
                 .frame(width: 600, height: 330)), CGSize(width: 600, height: 330)))
         }
         for module in store.modules {
