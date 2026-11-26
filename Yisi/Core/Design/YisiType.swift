@@ -6,10 +6,22 @@ import SwiftUI
 /// for Chinese. Archivo ships in the bundle and is the wordmark's family; PingFang ships with macOS.
 enum YisiType {
     private static let archivo: CTFontDescriptor? = {
-        guard let url = Bundle.module.url(forResource: "Archivo", withExtension: "ttf"),
+        guard let url = fontURL,
               let descriptors = CTFontManagerCreateFontDescriptorsFromURL(url as CFURL) as? [CTFontDescriptor]
         else { return nil }
         return descriptors.first
+    }()
+
+    /// Looks for the font rather than using `Bundle.module`, whose generated accessor traps when the
+    /// bundle is not where that toolchain expects it (CI's lays it out flat, beside the app root).
+    /// Without the font Yisi falls back to the system font; it never fails to launch over it.
+    static let fontURL: URL? = {
+        let roots = [Bundle.main.resourceURL, Bundle.main.bundleURL,
+                     Bundle.main.executableURL?.deletingLastPathComponent()].compactMap { $0 }
+        let folders = ["", "Yisi_Yisi.bundle", "Yisi_Yisi.bundle/Contents/Resources"]
+        return roots.lazy
+            .flatMap { root in folders.map { root.appendingPathComponent($0).appendingPathComponent("Archivo.ttf") } }
+            .first { FileManager.default.fileExists(atPath: $0.path) }
     }()
 
     private static let lock = NSLock()
