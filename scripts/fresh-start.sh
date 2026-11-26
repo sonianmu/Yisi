@@ -174,6 +174,7 @@ build_app() {
     [ -x "$bin_dir/Yisi" ] || { echo "找不到编译产物：$bin_dir/Yisi" >&2; return 1; }
     mkdir -p "$APP_BUNDLE/Contents/MacOS" "$APP_BUNDLE/Contents/Resources"
     cp "$bin_dir/Yisi" "$APP_BUNDLE/Contents/MacOS/Yisi"
+    cp -R "$bin_dir/Yisi_Yisi.bundle" "$APP_BUNDLE/Contents/Resources/"
     chmod +x "$APP_BUNDLE/Contents/MacOS/Yisi"
     cat > "$APP_BUNDLE/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>

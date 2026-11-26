@@ -28,16 +28,16 @@ import Combine
         status = ""
         defer { testing = false }
         do {
-            let response = try await save(submitted)
+            _ = try await save(submitted)
             savedDraft = submitted
             succeeded = true
-            status = "Connection successful. Settings saved.".localized + "\n" + String(response.prefix(160))
+            status = "Connection successful. Settings saved.".localized
             // Never advance with edits that were not part of the successful request.
             return submitted == draft
         } catch {
             guard !Task.isCancelled else { return false }
             succeeded = false
-            status = "Test failed. Previous settings were kept.".localized + "\n" + error.localizedDescription
+            status = "Test failed. Previous settings were kept.".localized + " " + error.localizedDescription
             return false
         }
     }

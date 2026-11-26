@@ -6,16 +6,16 @@ struct ThemePalettePreview: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .firstTextBaseline) {
                 Text("五套配色 · 弹窗对比")
-                    .font(.system(size: 24, weight: .medium, design: .serif))
+                    .font(.yisi(24, weight: .medium))
                 Spacer()
                 Text("相同布局与阅读遮罩 · 示例译文")
-                    .font(.system(size: 11, design: .serif))
+                    .font(.yisi(11))
                     .foregroundStyle(.secondary)
             }
             HStack(spacing: 18) {
                 Color.clear.frame(width: 36)
                 ForEach(["浅色", "深色", "密集文字背景"], id: \.self) { title in
-                    Text(title).font(.system(size: 11, design: .serif))
+                    Text(title).font(.yisi(11))
                         .foregroundStyle(.secondary)
                         .frame(maxWidth: .infinity)
                 }
@@ -64,23 +64,23 @@ struct ThemePalettePreview: View {
                     Spacer()
                     Image(systemName: "doc.on.doc").foregroundStyle(.secondary)
                 }
-                .font(.system(size: 10, design: .serif))
+                .font(.yisi(10))
                 Text("Stay focused on what matters.")
-                    .font(.system(size: 10))
+                    .font(.yisi(10))
                     .foregroundStyle(.secondary)
                 Text("把注意力留给真正重要的事。")
-                    .font(.system(size: 13, design: .serif))
+                    .font(.yisi(13))
                     .foregroundStyle(Color(hex: isDark ? "E6E5EB" : "1F1E2E"))
                     .fixedSize(horizontal: true, vertical: false)
                 HStack {
                     Text("标准")
-                        .font(.system(size: 10, design: .serif))
+                        .font(.yisi(10))
                         .foregroundStyle(Color(hex: colors.accent))
                         .padding(.horizontal, 7).padding(.vertical, 4)
                         .background(Color(hex: colors.selection), in: RoundedRectangle(cornerRadius: 4))
                     Spacer()
                     Text("Yisi")
-                        .font(.system(size: 11, weight: .medium, design: .serif))
+                        .font(.yisi(11, weight: .medium))
                         .foregroundStyle(Color(hex: colors.onAccent))
                         .frame(width: 45, height: 24)
                         .background(Color(hex: colors.accent), in: RoundedRectangle(cornerRadius: 5))

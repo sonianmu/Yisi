@@ -55,15 +55,14 @@ struct SettingsView: View {
     var body: some View {
         VStack(spacing: 0) {
             // Top Navigation
-            HStack(spacing: 24) { // 減小標籤間距，更緊湊
+            HStack(spacing: 20) {
                 TopTabButton(title: "History".localized, isSelected: selectedTopTab == 0) { selectedTopTab = 0 }
                 TopTabButton(title: "Settings".localized, isSelected: selectedTopTab == 1) { selectedTopTab = 1 }
                 Spacer()
             }
-            .padding(.leading, 20) // 微調對齊位置
-            .padding(.trailing, 20)
-            .padding(.top, 14)
-            .padding(.bottom, 4) // 大幅減小，讓內容區上提
+            .padding(.horizontal, 20)
+            .padding(.top, 8)
+            .padding(.bottom, 8)
             
             // Content Area (使用 ZStack 保活視圖，避免切換時重新初始化)
             ZStack(alignment: .topLeading) {
@@ -71,15 +70,17 @@ struct SettingsView: View {
                 HistoryView()
                     .opacity(selectedTopTab == 0 ? 1 : 0)
                     .allowsHitTesting(selectedTopTab == 0) // 隱藏時禁止點擊
+                    .accessibilityHidden(selectedTopTab != 0)
                 
                 // Settings Tab (Index 1)
                 SettingsContent()
                     .opacity(selectedTopTab == 1 ? 1 : 0)
                     .allowsHitTesting(selectedTopTab == 1)
+                    .accessibilityHidden(selectedTopTab != 1)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity) // 填充剩餘空間
         }
-        .frame(minWidth: 500, minHeight: 350)
+        .frame(minWidth: 460, minHeight: 340)
         .background(ThemeBackground().edgesIgnoringSafeArea(.all))
         .preferredColorScheme(ColorScheme(from: appTheme))
         .onReceive(NotificationCenter.default.publisher(for: Notification.Name("SwitchToHistory"))) { _ in
@@ -100,7 +101,7 @@ struct TopTabButton: View {
         Button(action: action) {
             VStack(spacing: 4) {
                 Text(title)
-                    .font(.system(size: 14, weight: isSelected ? .medium : .regular, design: .serif))
+                    .font(.yisi(14, weight: isSelected ? .medium : .regular))
                     .foregroundColor(isSelected ? .primary : .secondary)
                 
                 // Active Indicator
@@ -122,59 +123,17 @@ struct ScreenshotShortcutRecorder: View {
     @State private var showHint = false
 
     var body: some View {
-        Button(action: {
-            if isRecording {
-                stopRecording()
-            } else {
-                startRecording()
-            }
-        }) {
-            HStack {
-                if isRecording {
-                    Text(showHint ? "Requires Cmd/Ctrl/Opt".localized : "Press keys...".localized)
-                        .font(.system(size: 13, design: .serif))
-                        .foregroundColor(showHint ? .orange : .accentColor)
-                    Spacer()
-                    Image(systemName: "record.circle")
-                        .font(.system(size: 12))
-                        .foregroundColor(.accentColor)
-                        .symbolEffect(.pulse)
-                } else {
-                    Text(currentShortcut.isEmpty ? "Record Shortcut".localized : currentShortcut)
-                        .font(.system(size: 13, design: .serif))
-                        .foregroundColor(.primary)
-                    Spacer()
-                    if !currentShortcut.isEmpty {
-                        Button(action: {
-                            resetShortcut()
-                        }) {
-                            Image(systemName: "xmark.circle.fill")
-                                .font(.system(size: 12))
-                                .foregroundColor(.secondary.opacity(0.5))
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-            }
-            .padding(.vertical, 6)
-            .padding(.horizontal, 10)
-            .frame(width: 160)
-            .background(isRecording ? AppColors.primary.opacity(0.1) : AppColors.primary.opacity(0.05))
-            .cornerRadius(4)
-            .overlay(
-                RoundedRectangle(cornerRadius: 4)
-                    .stroke(isRecording ? AppColors.primary.opacity(0.3) : AppColors.primary.opacity(0.1), lineWidth: 0.5)
-            )
-        }
-        .buttonStyle(.plain)
-        .onAppear {
-            updateDisplay()
-        }
-        .onDisappear {
-            stopRecording()
-        }
+        SettingsShortcutControl(
+            shortcut: currentShortcut,
+            isRecording: isRecording,
+            showHint: showHint,
+            record: { isRecording ? stopRecording() : startRecording() },
+            reset: resetShortcut
+        )
+        .onAppear { updateDisplay() }
+        .onDisappear { stopRecording() }
     }
-    
+
     private func startRecording() {
         isRecording = true
         monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
@@ -253,16 +212,30 @@ struct SettingsContent: View {
     /// Lets debug previews open a given section.
     static var initialSection = "General"
     @AppStorage(AppDefaults.Keys.popupLiquidGlass) private var liquidGlassEnabled = AppDefaults.popupLiquidGlass
-    @State private var selectedSection: String = SettingsContent.initialSection
+    @State private var selectedSection: String
     @ObservedObject private var localizationManager = LocalizationManager.shared
     @Environment(\.colorScheme) var currentColorScheme
+
+    init(section: String? = nil) {
+        _selectedSection = State(initialValue: section ?? Self.initialSection)
+    }
     
+    /// Fits the longest label set in the selected weight, so it holds "Translation" and never shifts
+    /// as the selection moves, but never narrower than 84 so two-character labels still have air.
+    private var sidebarWidth: CGFloat {
+        let font = YisiType.nsFont(size: 13, weight: .medium)
+        let widest = ["General", "Service", "Modes", "Translation", "Modules", "About"]
+            .map { ($0.localized as NSString).size(withAttributes: [.font: font]).width }
+            .max() ?? 0
+        return max(84, ceil(widest) + 24 + 16)
+    }
+
     var body: some View {
         HStack(spacing: 0) {
             // Sidebar (Original Design)
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: 3) {
                 SidebarButton(title: "General".localized, isSelected: selectedSection == "General") { selectedSection = "General" }
-                SidebarButton(title: "AI Service".localized, isSelected: selectedSection == "AI Service") { selectedSection = "AI Service" }
+                SidebarButton(title: "Service".localized, isSelected: selectedSection == "AI Service") { selectedSection = "AI Service" }
                 SidebarButton(title: "Modes".localized, isSelected: selectedSection == "Modes") { selectedSection = "Modes" }
                 SidebarButton(title: "Translation".localized, isSelected: selectedSection == "Translation") { selectedSection = "Translation" }
                 SidebarButton(title: "Modules".localized, isSelected: selectedSection == "Modules") { selectedSection = "Modules" }
@@ -272,9 +245,9 @@ struct SettingsContent: View {
                 // About Section (Bottom)
                 SidebarButton(title: "About".localized, isSelected: selectedSection == "About") { selectedSection = "About" }
             }
-            .padding(.vertical, 14)
+            .padding(.vertical, 10)
             .padding(.horizontal, 8)
-            .frame(width: 120)
+            .frame(width: sidebarWidth)
             .background(
                 Group {
                     if #available(macOS 26.0, *), liquidGlassEnabled {
@@ -294,7 +267,7 @@ struct SettingsContent: View {
                     }
                 }
                 .cornerRadius(WindowCorner.radius)
-                .shadow(color: Color.black.opacity(currentColorScheme == .dark ? 0.5 : 0.1), radius: 10, x: 0, y: 0)
+                .shadow(color: Color.black.opacity(currentColorScheme == .dark ? 0.35 : 0.06), radius: 4, x: 0, y: 1)
             )
             .padding(.leading, 8)
             .padding(.top, 8)
@@ -303,7 +276,7 @@ struct SettingsContent: View {
             // Section Content
             GeometryReader { viewport in
                 TransparentScrollView {
-                    VStack(alignment: .leading, spacing: 24) {
+                    Group {
                         switch selectedSection {
                         case "AI Service":
                             AIServiceSettingsView()
@@ -319,11 +292,16 @@ struct SettingsContent: View {
                             GeneralSettingsView()
                         }
                     }
-                    .padding(24)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .environment(\.settingsPageHeight, max(viewport.size.height - 48 - 1, 0))
+                    .frame(maxWidth: SettingsLayout.contentWidth, alignment: .leading)
+                    .padding(SettingsLayout.inset)
+                    .frame(maxWidth: .infinity)
+                    .environment(\.settingsPageHeight, max(viewport.size.height - SettingsLayout.inset * 2 - 1, 0))
+                    .fixedSize(horizontal: false, vertical: true)
                 }
+                .id(selectedSection)
             }
+            .padding(.trailing, 8)
+            .padding(.bottom, 8)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .onReceive(NotificationCenter.default.publisher(for: .showModules)) { _ in selectedSection = "Modules" }
@@ -344,7 +322,7 @@ struct SidebarButton: View {
     var body: some View {
         Button(action: action) {
             Text(title)
-                .font(.system(size: 13, weight: isSelected ? .medium : .regular, design: .serif))
+                .font(.yisi(13, weight: isSelected ? .medium : .regular))
                 .foregroundColor(isSelected ? AppColors.primary : AppColors.text.opacity(0.7))
                 .padding(.horizontal, 12)
                 .padding(.vertical, 8)
@@ -375,7 +353,7 @@ struct ElegantSegmentedPicker: View {
                     withAnimation(.easeOut(duration: 0.2)) { selection = option.tag }
                 } label: {
                     Text(option.label)
-                        .font(.system(size: 13, weight: selected ? .medium : .regular, design: .serif))
+                        .font(.yisi(13, weight: selected ? .medium : .regular))
                         .foregroundColor(selected ? AppColors.primary : AppColors.text.opacity(0.55))
                         .padding(.vertical, 5)
                         .overlay(alignment: .bottom) {
@@ -406,72 +384,30 @@ struct GeneralSettingsView: View {
     @State private var launchAtLogin: Bool = SMAppService.mainApp.status == .enabled
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            // Language & Appearance
-            VStack(alignment: .leading, spacing: 8) {
-                HStack {
-                    Text("Language".localized)
-                        .font(.system(size: 13, design: .serif))
-                        .foregroundColor(.secondary)
-                        .frame(width: 80, alignment: .leading)
-                    
-                    CustomDropdown(
-                        selection: $localizationManager.language,
-                        options: ["en", "zh"],
-                        displayNames: ["English".localized, "Simplified Chinese".localized]
-                    )
+        VStack(alignment: .leading, spacing: SettingsLayout.sectionSpacing) {
+            SettingsGroup(title: "Appearance".localized) {
+                SettingsRow(title: "Language".localized) {
+                    CustomDropdown(selection: $localizationManager.language, options: ["en", "zh"],
+                                   displayNames: ["English".localized, "Simplified Chinese".localized])
                 }
-                
-                HStack {
-                    Text("Appearance".localized)
-                        .font(.system(size: 13, design: .serif))
-                        .foregroundColor(.secondary)
-                        .frame(width: 80, alignment: .leading)
-                    
-                    CustomDropdown(
-                        selection: $appTheme,
-                        options: ["system", "light", "dark"],
-                        displayNames: ["System".localized, "Light".localized, "Dark".localized]
-                    )
+                SettingsRow(title: "Color Scheme".localized) {
+                    CustomDropdown(selection: $appTheme, options: ["system", "light", "dark"],
+                                   displayNames: ["System".localized, "Light".localized, "Dark".localized])
                 }
-
-                HStack {
-                    Text("Liquid Glass".localized)
-                        .font(.system(size: 13, design: .serif))
-                        .foregroundColor(.secondary)
-                        .frame(width: 80, alignment: .leading)
-
-                    if #available(macOS 26.0, *) {
+                if #available(macOS 26.0, *) {
+                    SettingsRow(title: "Liquid Glass".localized) {
                         ElegantToggle(isOn: $popupLiquidGlass)
-                            .accessibilityLabel("Liquid Glass".localized)
-                    } else {
-                        ElegantToggle(isOn: .constant(false))
-                            .disabled(true)
-                            .accessibilityLabel("Liquid Glass".localized)
                     }
-
-                    if #unavailable(macOS 26.0) {
-                        Text("Requires macOS 26 or later".localized)
-                            .font(.system(size: 11, design: .serif))
-                            .foregroundColor(.secondary)
+                } else {
+                    SettingsRow(title: "Liquid Glass".localized, detail: "Requires macOS 26 or later".localized) {
+                        ElegantToggle(isOn: .constant(false)).disabled(true)
                     }
                 }
-
                 ThemeColorSettingsView()
             }
-            
-            Divider().opacity(0.3)
-            
-            // Window Behavior
-            VStack(alignment: .leading, spacing: 8) {
-                SectionHeader(title: "Behavior".localized)
-                
-                HStack {
-                    Text("Auto Start".localized)
-                        .font(.system(size: 13, design: .serif))
-                        .foregroundColor(.secondary)
-                        .frame(width: 80, alignment: .leading)
-                    
+
+            SettingsGroup(title: "Behavior".localized) {
+                SettingsRow(title: "Auto Start".localized) {
                     ElegantToggle(isOn: $launchAtLogin)
                 }
                 .onChange(of: launchAtLogin) { _, newValue in
@@ -481,97 +417,36 @@ struct GeneralSettingsView: View {
                         try? SMAppService.mainApp.unregister()
                     }
                 }
-
-                HStack {
-                    Text("Auto Update".localized)
-                        .font(.system(size: 13, design: .serif))
-                        .foregroundColor(.secondary)
-                        .frame(width: 80, alignment: .leading)
-
-                    ElegantToggle(isOn: $autoCheckUpdates)
-
-                    Spacer()
-
-                    Button(action: {
-                        UpdateManager.shared.checkForUpdates(silent: false)
-                    }) {
-                        Text("Check for Updates".localized)
-                            .font(.system(size: 12, design: .serif))
-                            .foregroundColor(.primary)
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 5)
-                            .background(Color.primary.opacity(0.05))
-                            .cornerRadius(4)
-                            .overlay(RoundedRectangle(cornerRadius: 4).stroke(Color.primary.opacity(0.1), lineWidth: 0.5))
-                    }
-                    .buttonStyle(.plain)
+                SettingsRow(title: "Close Mode".localized) {
+                    CustomDropdown(selection: $closeMode, options: ClosingMode.allCases.map(\.rawValue),
+                                   displayNames: ClosingMode.allCases.map { $0.displayName.localized })
                 }
-                
-                HStack {
-                    Text("Close Mode".localized)
-                        .font(.system(size: 13, design: .serif))
-                        .foregroundColor(.secondary)
-                        .frame(width: 80, alignment: .leading)
-                    
-                    CustomDropdown(selection: $closeMode, options: ClosingMode.allCases.map { $0.rawValue }, displayNames: ClosingMode.allCases.map { $0.displayName.localized })
-                }
-
-                HStack {
-                    Text("Layout".localized)
-                        .font(.system(size: 13, design: .serif))
-                        .foregroundColor(.secondary)
-                        .frame(width: 80, alignment: .leading)
-                    
-                    Button(action: {
+                SettingsRow(title: "Layout".localized) {
+                    OutlinedButton(title: "Customize Popup Layout".localized) {
                         LayoutEditorManager.shared.openEditor()
-                    }) {
-                        Text("Customize Popup Layout".localized)
-                            .font(.system(size: 13, design: .serif))
-                            .foregroundColor(.primary)
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 6)
-                            .background(Color.primary.opacity(0.05))
-                            .cornerRadius(4)
-                            .overlay(RoundedRectangle(cornerRadius: 4).stroke(Color.primary.opacity(0.1), lineWidth: 0.5))
                     }
-                    .buttonStyle(.plain)
                 }
             }
-            
-            Divider().opacity(0.3)
-            
-            // Shortcuts
-            VStack(alignment: .leading, spacing: 8) {
-                SectionHeader(title: "Shortcuts".localized)
-                
-                HStack {
-                    Text("Activate".localized)
-                        .font(.system(size: 13, design: .serif))
-                        .foregroundColor(.secondary)
-                        .frame(width: 80, alignment: .leading)
-                    
-                    ShortcutRecorder()
-                }
-                
-                HStack {
-                    Text("Screenshot".localized)
-                        .font(.system(size: 13, design: .serif))
-                        .foregroundColor(.secondary)
-                        .frame(width: 80, alignment: .leading)
-                    
-                    ScreenshotShortcutRecorder()
-                }
-                
-                Text("Press the key combination you want to use.".localized)
-                    .font(.system(size: 12, design: .serif))
-                    .foregroundColor(.secondary.opacity(0.6))
-                    .padding(.top, 4)
+
+            SettingsGroup(title: "Shortcuts".localized) {
+                SettingsRow(title: "Activate".localized) { ShortcutRecorder() }
+                SettingsRow(title: "Screenshot".localized) { ScreenshotShortcutRecorder() }
             }
-            Divider().opacity(0.3)
-            DataSettingsSection()
-            Divider().opacity(0.3)
-            SoftwareRepairSection()
+
+            SettingsGroup(title: "Maintenance".localized) {
+                SettingsRow(title: "Auto Update".localized) {
+                    HStack(spacing: 16) {
+                        ElegantToggle(isOn: $autoCheckUpdates)
+                        OutlinedButton(title: "Check for Updates".localized, size: 12) {
+                            UpdateManager.shared.checkForUpdates(silent: false)
+                        }
+                    }
+                }
+                DataSettingsRow()
+                SoftwareRepairRow()
+            }
         }
+        .settingsForm()
     }
 }
 
@@ -582,29 +457,26 @@ struct AIServiceSettingsView: View {
     @AppStorage(AppDefaults.Keys.applyApiToImageMode) private var sameAPI = AppDefaults.applyApiToImageMode
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 24) {
+        VStack(alignment: .leading, spacing: SettingsLayout.sectionSpacing) {
             AIServiceConfigurationForm()
-            Divider().opacity(0.3)
-            VStack(alignment: .leading, spacing: 12) {
-                SectionHeader(title: "Image Mode".localized)
-                ElegantSegmentedPicker(selection: $imageStrategy,
-                    options: [("local_ocr", "System OCR".localized), ("ai_vision", "AI Vision".localized)])
-                if imageStrategy == "local_ocr" {
-                    Text("Only recognizes pure text structures in images".localized)
-                        .font(.system(size: 12)).foregroundColor(.secondary)
-                } else {
-                    HStack {
-                        Text("Same API".localized).font(.system(size: 13, design: .serif))
-                            .foregroundColor(.secondary).frame(width: 80, alignment: .leading)
+            VStack(alignment: .leading, spacing: SettingsLayout.rowSpacing) {
+                SettingsRow(title: "Image Mode".localized,
+                            detail: imageStrategy == "local_ocr" ? "Only recognizes pure text structures in images".localized : nil) {
+                    ElegantSegmentedPicker(selection: $imageStrategy,
+                        options: [("local_ocr", "System OCR".localized), ("ai_vision", "AI Vision".localized)])
+                }
+                if imageStrategy != "local_ocr" {
+                    SettingsRow(title: "Use the same API".localized,
+                                detail: "Please ensure the selected model supports vision input.".localized) {
                         ElegantToggle(isOn: $sameAPI)
                     }
-                    Text("Please ensure the selected model supports vision input.".localized)
-                        .font(.system(size: 11)).foregroundColor(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                    if !sameAPI { AIServiceConfigurationForm(imageConfiguration: true) }
                 }
             }
+            if imageStrategy != "local_ocr" && !sameAPI {
+                AIServiceConfigurationForm(imageConfiguration: true)
+            }
         }
+        .settingsForm()
     }
 }
 
@@ -618,29 +490,17 @@ struct ModesSettingsView: View {
     @State private var editingPreset: PromptPreset?
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            // Preset Mode Toggle
-            HStack {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Enable Preset Mode".localized)
-                        .font(.system(size: 13, weight: .medium, design: .serif))
-                        .foregroundColor(.primary)
-                    Text("Use saved presets instead of custom mode".localized)
-                        .font(.system(size: 11, design: .serif))
-                        .foregroundColor(.secondary.opacity(0.7))
-                }
-                Spacer()
+        VStack(alignment: .leading, spacing: SettingsLayout.sectionSpacing) {
+            SettingsRow(title: "Enable Preset Mode".localized,
+                        detail: "Use saved presets instead of custom mode".localized) {
                 ElegantToggle(isOn: $presetModeEnabled)
             }
-
-            Divider().opacity(0.3)
+            .settingsForm()
 
             // Preset Selection (Only visible when preset mode is enabled)
             if presetModeEnabled {
                 VStack(alignment: .leading, spacing: 12) {
-                    Text("Select Preset".localized)
-                        .font(.system(size: 13, weight: .medium, design: .serif))
-                        .foregroundColor(.primary)
+                    SectionHeader(title: "Select Preset".localized)
 
                     // Default Translation Preset (Built-in)
                     PresetRadioRow(
@@ -651,13 +511,9 @@ struct ModesSettingsView: View {
                         onSelect: { selectedPresetId = AppDefaults.selectedPresetId }
                     )
 
-                    Divider().opacity(0.3)
-
                     // User Presets Header
                     HStack {
-                        Text("Custom Presets".localized)
-                            .font(.system(size: 12, weight: .medium, design: .serif))
-                            .foregroundColor(.secondary)
+                        SectionHeader(title: "Custom Presets".localized)
                         Spacer()
                         Button(action: {
                             editingPreset = PromptPreset(id: UUID(), name: "", inputPerception: "", outputInstruction: "")
@@ -676,7 +532,7 @@ struct ModesSettingsView: View {
                     // User Presets List
                     if presets.isEmpty {
                         Text("No custom presets yet".localized)
-                            .font(.system(size: 12, design: .serif))
+                            .font(.yisi(12))
                             .foregroundColor(.secondary.opacity(0.6))
                             .padding(.vertical, 8)
                     } else {
@@ -732,11 +588,8 @@ struct ModesSettingsView: View {
     private var moduleRows: some View {
         let modules = store.modules(for: .preset)
         if !modules.isEmpty {
-            Divider().opacity(0.3)
             HStack {
-                Text("From Modules".localized)
-                    .font(.system(size: 12, weight: .medium, design: .serif))
-                    .foregroundColor(.secondary)
+                SectionHeader(title: "From Modules".localized)
                 Spacer()
                 ManageInModulesLink(role: .preset)
             }
@@ -795,84 +648,39 @@ struct TranslationSettingsView: View {
     @AppStorage(AppDefaults.Keys.enableImproveFeature) private var enableImproveFeature: Bool = AppDefaults.enableImproveFeature
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            // Default Translation Path (moved first)
-            VStack(alignment: .leading, spacing: 8) {
-                SectionHeader(title: "Default Path".localized)
-                
-                HStack {
-                    Text("Source".localized)
-                        .font(.system(size: 13, design: .serif))
-                        .foregroundColor(.secondary)
-                        .frame(width: 80, alignment: .leading)
-                    
-                    CustomDropdown(
-                        selection: $defaultSourceLanguage,
-                        options: Language.sourceLanguages.map { $0.rawValue },
-                        displayNames: Language.sourceLanguages.map { $0.displayName }
-                    )
+        VStack(alignment: .leading, spacing: SettingsLayout.sectionSpacing) {
+            SettingsGroup(title: "Default Path".localized) {
+                SettingsRow(title: "Source".localized) {
+                    CustomDropdown(selection: $defaultSourceLanguage, options: Language.sourceLanguages.map(\.rawValue),
+                                   displayNames: Language.sourceLanguages.map(\.displayName))
                 }
-                
-                HStack {
-                    Text("Target".localized)
-                        .font(.system(size: 13, design: .serif))
-                        .foregroundColor(.secondary)
-                        .frame(width: 80, alignment: .leading)
-                    
-                    CustomDropdown(
-                        selection: $defaultTargetLanguage,
-                        options: Language.targetLanguages.map { $0.rawValue },
-                        displayNames: Language.targetLanguages.map { $0.displayName }
-                    )
+                SettingsRow(title: "Target".localized) {
+                    CustomDropdown(selection: $defaultTargetLanguage, options: Language.targetLanguages.map(\.rawValue),
+                                   displayNames: Language.targetLanguages.map(\.displayName))
                 }
             }
-            
-            Divider().opacity(0.3)
-            
-            // Engine Selector (moved second, custom style)
-            VStack(alignment: .leading, spacing: 8) {
-                SectionHeader(title: "Engine".localized)
-                
+
+            SettingsGroup(title: "Engine".localized) {
                 ElegantSegmentedPicker(
                     selection: $translationEngine,
                     options: [("system", "System Translation".localized), ("ai", "AI Translation".localized),
                               ("external", "Other Sources".localized)]
                 )
-            }
-            
-            // AI-specific settings
-            if translationEngine == "ai" {
-                Divider().opacity(0.3)
-                
-                // Smart Improve Toggle
-                VStack(alignment: .leading, spacing: 8) {
-                    SectionHeader(title: "Smart Improve".localized)
-                    
-                    HStack {
+                if translationEngine == "ai" {
+                    SettingsRow(title: "Smart Improve".localized, detail: "Learn from your corrections".localized) {
                         ElegantToggle(isOn: $enableImproveFeature)
-                        
-                        Text("Learn from your corrections".localized)
-                            .font(.system(size: 13, design: .serif))
-                            .foregroundColor(.secondary)
-                        
-                        Spacer()
                     }
-                    
-                    Text("Text mode only. Images excluded to save space.".localized)
-                        .font(.system(size: 12, design: .serif))
-                        .foregroundColor(.secondary.opacity(0.6))
+                    .padding(.top, 8)
                 }
-                
-                Divider().opacity(0.3)
-                
-                // Learned Rules Section
-                LearnedRulesSection()
-            } else if translationEngine == "external" {
-                Divider().opacity(0.3)
+            }
+
+            if translationEngine == "external" {
                 TranslatorPicker()
-            } else {
-                Divider().opacity(0.3)
-                
+            }
+
+            if translationEngine == "ai" {
+                LearnedRulesSection()
+            } else if translationEngine == "system" {
                 if #available(macOS 15.0, *) {
                     LanguagePackStatusView(
                         defaultSource: defaultSourceLanguage,
@@ -882,12 +690,13 @@ struct TranslationSettingsView: View {
                     VStack(alignment: .leading, spacing: 8) {
                         SectionHeader(title: "System Translation".localized)
                         Text("Requires macOS 15.0 or later.".localized)
-                            .font(.system(size: 13, design: .serif))
+                            .font(.yisi(13))
                             .foregroundColor(.secondary)
                     }
                 }
             }
         }
+        .settingsForm()
     }
 }
 
@@ -919,13 +728,11 @@ private struct LanguagePackStatusView: View {
     
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            SectionHeader(title: "System Translation".localized)
             
             Text("macOS built-in translation. Fast, private, requires language pack.".localized)
-                .font(.system(size: 12, design: .serif))
+                .font(.yisi(12))
                 .foregroundColor(.secondary.opacity(0.7))
             
-            Divider().opacity(0.2)
             
             SectionHeader(title: "Language Packs".localized)
             
@@ -936,7 +743,7 @@ private struct LanguagePackStatusView: View {
                         .scaleEffect(0.5)
                         .frame(width: 14, height: 14)
                     Text("Checking...".localized)
-                        .font(.system(size: 12, design: .serif))
+                        .font(.yisi(12))
                         .foregroundColor(.secondary.opacity(0.6))
                 }
                 .padding(.vertical, 4)
@@ -1014,7 +821,7 @@ private struct LanguagePackRow: View {
     var body: some View {
         HStack {
             Text(name)
-                .font(.system(size: 13, design: .serif))
+                .font(.yisi(13))
                 .foregroundColor(.primary)
             
             Spacer()
@@ -1026,7 +833,7 @@ private struct LanguagePackRow: View {
             } else {
                 Button(action: onDownload) {
                     Text("Download".localized)
-                        .font(.system(size: 11, weight: .medium, design: .serif))
+                        .font(.yisi(11, weight: .medium))
                         .foregroundColor(AppColors.primary)
                         .padding(.horizontal, 8)
                         .padding(.vertical, 3)
@@ -1129,7 +936,7 @@ struct SectionHeader: View {
     let title: String
     var body: some View {
         Text(title)
-            .font(.system(size: 12, weight: .medium, design: .serif))
+            .font(.yisi(12, weight: .medium))
             .foregroundColor(AppColors.text.opacity(0.8))
             .textCase(.uppercase)
             .kerning(0.5)
@@ -1143,31 +950,15 @@ struct APIKeyInput: View {
     var isSecure: Bool = true  // Default to secure (密文)
     
     var body: some View {
-        HStack(alignment: .center) {
-            Text(label)
-                .font(.system(size: 13, design: .serif))
-                .foregroundColor(.secondary)
-                .frame(width: 80, alignment: .leading)
-            
-            if isSecure {
-                SecureField(placeholder, text: $text)
-                    .textFieldStyle(PlainTextFieldStyle())
-                    .font(.system(size: 13))
-                    .padding(.vertical, 6)
-                    .padding(.horizontal, 8)
-                    .background(AppColors.primary.opacity(0.05))
-                    .cornerRadius(4)
-                    .overlay(RoundedRectangle(cornerRadius: 4).stroke(AppColors.primary.opacity(0.1), lineWidth: 0.5))
-            } else {
-                TextField(placeholder, text: $text)
-                    .textFieldStyle(PlainTextFieldStyle())
-                    .font(.system(size: 13))
-                    .padding(.vertical, 6)
-                    .padding(.horizontal, 8)
-                    .background(AppColors.primary.opacity(0.05))
-                    .cornerRadius(4)
-                    .overlay(RoundedRectangle(cornerRadius: 4).stroke(AppColors.primary.opacity(0.1), lineWidth: 0.5))
+        SettingsRow(title: label) {
+            Group {
+                if isSecure {
+                    SecureField(placeholder, text: $text)
+                } else {
+                    TextField(placeholder, text: $text)
+                }
             }
+            .settingsTextField()
         }
     }
 }
@@ -1193,11 +984,11 @@ struct PresetRadioRow: View {
             
             VStack(alignment: .leading, spacing: 2) {
                 Text(name)
-                    .font(.system(size: 13, weight: isSelected ? .semibold : .regular, design: .serif))
+                    .font(.yisi(13, weight: isSelected ? .semibold : .regular))
                     .foregroundColor(.primary)
                 if !description.isEmpty {
                     Text(description)
-                        .font(.system(size: 11, design: .serif))
+                        .font(.yisi(11))
                         .foregroundColor(.secondary.opacity(0.7))
                         .lineLimit(1)
                 }
@@ -1263,7 +1054,7 @@ struct PresetEditor: View {
     var body: some View {
         VStack(spacing: 24) {
             Text(isNew ? "New Preset".localized : "Edit Preset".localized)
-                .font(.system(size: 18, weight: .medium, design: .serif))
+                .font(.yisi(18, weight: .medium))
                 .foregroundColor(.primary)
                 .padding(.top, 8)
             
@@ -1271,7 +1062,7 @@ struct PresetEditor: View {
                 StyledInputGroup(label: "Name".localized) {
                     TextField("e.g. Code Audit".localized, text: $name)
                         .textFieldStyle(.plain)
-                        .font(.system(size: 14))
+                        .font(.yisi(14))
                         .focused($focusedField, equals: .name)
                         .padding(10)
                 }
@@ -1280,7 +1071,7 @@ struct PresetEditor: View {
                     ZStack(alignment: .topLeading) {
                         if inputPerception.isEmpty {
                             Text("How AI should understand the input...".localized)
-                                .font(.system(size: 13))
+                                .font(.yisi(13))
                                 .foregroundColor(.secondary.opacity(0.5))
                                 .padding(.leading, 5)
                                 .padding(.top, 8)
@@ -1297,7 +1088,7 @@ struct PresetEditor: View {
                     ZStack(alignment: .topLeading) {
                         if outputInstruction.isEmpty {
                             Text("How AI should format the output...".localized)
-                                .font(.system(size: 13))
+                                .font(.yisi(13))
                                 .foregroundColor(.secondary.opacity(0.5))
                                 .padding(.leading, 5)
                                 .padding(.top, 8)
@@ -1314,7 +1105,7 @@ struct PresetEditor: View {
             HStack(spacing: 12) {
                 Button(action: onCancel) {
                     Text("Cancel".localized)
-                        .font(.system(size: 13, weight: .medium, design: .serif))
+                        .font(.yisi(13, weight: .medium))
                         .foregroundColor(.secondary)
                         .padding(.horizontal, 16)
                         .padding(.vertical, 8)
@@ -1334,7 +1125,7 @@ struct PresetEditor: View {
                     onSave(newPreset)
                 }) {
                     Text("Save".localized)
-                        .font(.system(size: 13, weight: .medium, design: .serif))
+                        .font(.yisi(13, weight: .medium))
                         .foregroundColor(name.isEmpty ? .white : AppColors.onAccent)
                         .padding(.horizontal, 20)
                         .padding(.vertical, 8)
@@ -1376,7 +1167,7 @@ struct StyledInputGroup<Content: View>: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(label)
-                .font(.system(size: 12, weight: .medium, design: .serif))
+                .font(.yisi(12, weight: .medium))
                 .foregroundColor(.secondary)
                 .padding(.leading, 2)
             
@@ -1410,7 +1201,7 @@ struct SmoothEditor: NSViewRepresentable {
         textView.isHorizontallyResizable = false
         textView.autoresizingMask = [.width]
         
-        textView.font = NSFont.systemFont(ofSize: 13)
+        textView.font = YisiType.nsFont(size: 13)
         textView.textContainerInset = NSSize(width: 5, height: 8)
         textView.textContainer?.lineFragmentPadding = 0
         
@@ -1453,7 +1244,7 @@ struct ShortcutsSection: View {
             
             HStack {
                 Text("Activate".localized)
-                    .font(.system(size: 13, design: .serif))
+                    .font(.yisi(13))
                     .foregroundColor(.secondary)
                     .frame(width: 80, alignment: .leading)
                 
@@ -1462,7 +1253,7 @@ struct ShortcutsSection: View {
             
             HStack {
                 Text("Screenshot".localized)
-                    .font(.system(size: 13, design: .serif))
+                    .font(.yisi(13))
                     .foregroundColor(.secondary)
                     .frame(width: 80, alignment: .leading)
                 
@@ -1470,7 +1261,7 @@ struct ShortcutsSection: View {
             }
             
             Text("Press the key combination you want to use.".localized)
-                .font(.system(size: 12, design: .serif))
+                .font(.yisi(12))
                 .foregroundColor(.secondary.opacity(0.6))
                 .padding(.top, 4)
         }
@@ -1501,7 +1292,7 @@ struct LearnedRulesSection: View {
             }
             
             Text("Translation rules learned from your corrections.".localized)
-                .font(.system(size: 13, design: .serif))
+                .font(.yisi(13))
                 .foregroundColor(.secondary)
             
             if isLoading {
@@ -1518,10 +1309,10 @@ struct LearnedRulesSection: View {
                         .font(.system(size: 28, weight: .light))
                         .foregroundColor(.secondary.opacity(0.3))
                     Text("No rules learned yet".localized)
-                        .font(.system(size: 13, weight: .medium, design: .serif))
+                        .font(.yisi(13, weight: .medium))
                         .foregroundColor(.secondary)
                     Text("Edit translations and click Improve to start learning.".localized)
-                        .font(.system(size: 12, design: .serif))
+                        .font(.yisi(12))
                         .foregroundColor(.secondary.opacity(0.7))
                 }
                 .frame(maxWidth: .infinity)
@@ -1631,7 +1422,7 @@ struct EditRuleSheet: View {
         VStack(spacing: 0) {
             // Header
             Text("Edit Rule".localized)
-                .font(.system(size: 16, weight: .medium, design: .serif))
+                .font(.yisi(16, weight: .medium))
                 .foregroundColor(.primary)
                 .padding(.top, 24)
                 .padding(.bottom, 20)
@@ -1643,11 +1434,11 @@ struct EditRuleSheet: View {
                     // Rule Content
                     VStack(alignment: .leading, spacing: 8) {
                         Text("Rule".localized)
-                            .font(.system(size: 12, weight: .medium, design: .serif))
+                            .font(.yisi(12, weight: .medium))
                             .foregroundColor(.secondary)
                         
                         TextEditor(text: $editedReasoning)
-                            .font(.system(size: 13, design: .serif))
+                            .font(.yisi(13))
                             .frame(height: 80)
                             .scrollContentBackground(.hidden)
                             .padding(10)
@@ -1668,12 +1459,12 @@ struct EditRuleSheet: View {
                         // Better (Editable)
                         VStack(alignment: .leading, spacing: 6) {
                             Text("Better".localized)
-                                .font(.system(size: 11, weight: .medium, design: .serif))
+                                .font(.yisi(11, weight: .medium))
                                 .foregroundColor(AppColors.primary.opacity(0.8))
                             
                             TextField("Your correction...", text: $editedCorrection)
                                 .textFieldStyle(.plain)
-                                .font(.system(size: 13, weight: .medium, design: .serif))
+                                .font(.yisi(13, weight: .medium))
                                 .padding(10)
                                 .background(Color.primary.opacity(0.03))
                                 .cornerRadius(6)
@@ -1693,7 +1484,7 @@ struct EditRuleSheet: View {
             HStack(spacing: 12) {
                 Button(action: onCancel) {
                     Text("Cancel".localized)
-                        .font(.system(size: 13, weight: .medium, design: .serif))
+                        .font(.yisi(13, weight: .medium))
                         .foregroundColor(.secondary)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 10)
@@ -1718,7 +1509,7 @@ struct EditRuleSheet: View {
                     onSave(updated)
                 }) {
                     Text("Save".localized)
-                        .font(.system(size: 13, weight: .medium, design: .serif))
+                        .font(.yisi(13, weight: .medium))
                         .foregroundColor(AppColors.onAccent)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 10)
@@ -1743,11 +1534,11 @@ struct ReadOnlyField: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(label.localized)
-                .font(.system(size: 11, weight: .medium, design: .serif))
+                .font(.yisi(11, weight: .medium))
                 .foregroundColor(.secondary.opacity(0.6))
             
             Text(text.isEmpty ? "-" : text)
-                .font(.system(size: 13, design: .serif))
+                .font(.yisi(13))
                 .foregroundColor(.secondary.opacity(0.8))
                 .fixedSize(horizontal: false, vertical: true)
                 .padding(10)
@@ -1785,7 +1576,7 @@ struct AddRuleSheet: View {
         VStack(spacing: 0) {
             // Header
             Text("Add Rule".localized)
-                .font(.system(size: 16, weight: .medium, design: .serif))
+                .font(.yisi(16, weight: .medium))
                 .foregroundColor(.primary)
                 .padding(.top, 24)
                 .padding(.bottom, 20)
@@ -1795,11 +1586,11 @@ struct AddRuleSheet: View {
                     // Rule Content (Required)
                     VStack(alignment: .leading, spacing: 8) {
                         Text("Rule Content".localized)
-                            .font(.system(size: 12, weight: .medium, design: .serif))
+                            .font(.yisi(12, weight: .medium))
                             .foregroundColor(.secondary)
                         
                         TextEditor(text: $ruleContent)
-                            .font(.system(size: 13, design: .serif))
+                            .font(.yisi(13))
                             .frame(height: 80)
                             .scrollContentBackground(.hidden)
                             .padding(10)
@@ -1812,7 +1603,7 @@ struct AddRuleSheet: View {
                     // Attach Example Toggle
                     HStack {
                         Text("Attach Example".localized)
-                            .font(.system(size: 13, design: .serif))
+                            .font(.yisi(13))
                             .foregroundColor(.secondary)
                         
                         Spacer()
@@ -1839,7 +1630,7 @@ struct AddRuleSheet: View {
             HStack(spacing: 12) {
                 Button(action: onCancel) {
                     Text("Cancel".localized)
-                        .font(.system(size: 13, weight: .medium, design: .serif))
+                        .font(.yisi(13, weight: .medium))
                         .foregroundColor(.secondary)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 10)
@@ -1858,7 +1649,7 @@ struct AddRuleSheet: View {
                     )
                 }) {
                     Text("Save".localized)
-                        .font(.system(size: 13, weight: .medium, design: .serif))
+                        .font(.yisi(13, weight: .medium))
                         .foregroundColor(canSave ? AppColors.onAccent : .white)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 10)
@@ -1885,13 +1676,13 @@ struct AddRuleField: View {
     var body: some View {
         HStack(alignment: .top, spacing: 8) {
             Text(label)
-                .font(.system(size: 11, weight: .medium, design: .serif))
+                .font(.yisi(11, weight: .medium))
                 .foregroundColor(highlight ? AppColors.primary.opacity(0.8) : .secondary.opacity(0.6))
                 .frame(width: 40, alignment: .leading)
             
             TextField(placeholder, text: $text)
                 .textFieldStyle(.plain)
-                .font(.system(size: 12, design: .serif))
+                .font(.yisi(12))
                 .padding(8)
                 .background(Color.primary.opacity(0.03))
                 .cornerRadius(4)
@@ -1909,7 +1700,7 @@ struct RuleCard: View {
         HStack(alignment: .top, spacing: 12) {
             // Rule Text (Brief)
             Text(rule.reasoning)
-                .font(.system(size: 13, weight: .regular, design: .serif))
+                .font(.yisi(13, weight: .regular))
                 .foregroundColor(.primary)
                 .lineLimit(2)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -1959,12 +1750,12 @@ struct RuleFieldRow: View {
     var body: some View {
         HStack(alignment: .top, spacing: 8) {
             Text(label)
-                .font(.system(size: 11, weight: .medium, design: .serif))
+                .font(.yisi(11, weight: .medium))
                 .foregroundColor(labelColor)
                 .frame(width: 40, alignment: .leading)
             
             Text(value)
-                .font(.system(size: 12, weight: isBold ? .medium : .regular, design: .serif))
+                .font(.yisi(12, weight: isBold ? .medium : .regular))
                 .foregroundColor(valueColor)
                 .lineLimit(2)
         }
@@ -2005,7 +1796,7 @@ struct CustomDropdown: View {
             // Plain text and the system chevron on every macOS: from 26 the borderless style ignores
             // a label's frame and background anyway, so none is drawn on earlier versions either.
             Text(displayName(for: selection))
-                .font(.system(size: 13, design: .serif))
+                .font(.yisi(13))
                 .foregroundColor(.primary)
         }
         .menuStyle(.borderlessButton)
@@ -2056,59 +1847,17 @@ struct ShortcutRecorder: View {
     @State private var showHint = false
 
     var body: some View {
-        Button(action: {
-            if isRecording {
-                stopRecording()
-            } else {
-                startRecording()
-            }
-        }) {
-            HStack {
-                if isRecording {
-                    Text(showHint ? "Requires Cmd/Ctrl/Opt".localized : "Press keys...".localized)
-                        .font(.system(size: 13, design: .serif))
-                        .foregroundColor(showHint ? .orange : .accentColor)
-                    Spacer()
-                    Image(systemName: "record.circle")
-                        .font(.system(size: 12))
-                        .foregroundColor(.accentColor)
-                        .symbolEffect(.pulse)
-                } else {
-                    Text(currentShortcut.isEmpty ? "Record Shortcut".localized : currentShortcut)
-                        .font(.system(size: 13, design: .serif))
-                        .foregroundColor(.primary)
-                    Spacer()
-                    if !currentShortcut.isEmpty {
-                        Button(action: {
-                            resetShortcut()
-                        }) {
-                            Image(systemName: "xmark.circle.fill")
-                                .font(.system(size: 12))
-                                .foregroundColor(.secondary.opacity(0.5))
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-            }
-            .padding(.vertical, 6)
-            .padding(.horizontal, 10)
-            .frame(width: 160)
-            .background(isRecording ? AppColors.primary.opacity(0.1) : AppColors.primary.opacity(0.05))
-            .cornerRadius(4)
-            .overlay(
-                RoundedRectangle(cornerRadius: 4)
-                    .stroke(isRecording ? AppColors.primary.opacity(0.3) : AppColors.primary.opacity(0.1), lineWidth: 0.5)
-            )
-        }
-        .buttonStyle(.plain)
-        .onAppear {
-            updateDisplay()
-        }
-        .onDisappear {
-            stopRecording()
-        }
+        SettingsShortcutControl(
+            shortcut: currentShortcut,
+            isRecording: isRecording,
+            showHint: showHint,
+            record: { isRecording ? stopRecording() : startRecording() },
+            reset: resetShortcut
+        )
+        .onAppear { updateDisplay() }
+        .onDisappear { stopRecording() }
     }
-    
+
     private func startRecording() {
         isRecording = true
         // Add a local monitor to capture keys

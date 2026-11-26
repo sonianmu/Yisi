@@ -169,7 +169,7 @@ class ScreenCaptureOverlayView: NSView {
     private func drawHUD() {
         let hudText = "Drag to select · Double-click to upload · Right-click to cancel".localized
         let attributes: [NSAttributedString.Key: Any] = [
-            .font: NSFont.systemFont(ofSize: 13, weight: .medium),
+            .font: YisiType.nsFont(size: 13, weight: .medium),
             .foregroundColor: NSColor.white
         ]
         
@@ -203,7 +203,7 @@ class ScreenCaptureOverlayView: NSView {
     private func drawSizeLabel(for rect: CGRect, in context: CGContext) {
         let sizeText = "\(Int(rect.width)) × \(Int(rect.height))"
         let attributes: [NSAttributedString.Key: Any] = [
-            .font: NSFont.systemFont(ofSize: 11, weight: .medium),
+            .font: YisiType.nsFont(size: 11, weight: .medium),
             .foregroundColor: NSColor.white
         ]
         

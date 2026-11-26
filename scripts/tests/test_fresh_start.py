@@ -90,6 +90,9 @@ class FreshStartTests(unittest.TestCase):
         binary = self.root / "bin/Yisi"
         binary.write_text("mock executable")
         binary.chmod(0o755)
+        resources = self.root / "bin/Yisi_Yisi.bundle"
+        resources.mkdir()
+        (resources / "Archivo.ttf").touch()
         (self.root / "tmp").mkdir()
         stubs = self.root / "stubs"
         stubs.mkdir()
@@ -139,6 +142,7 @@ class FreshStartTests(unittest.TestCase):
         self.assertEqual(info["CFBundleIdentifier"], "com.sonianmu.yisi")
         self.assertIn("NSScreenCaptureUsageDescription", info)
         self.assertTrue((app / "Contents/MacOS/Yisi").is_file())
+        self.assertTrue((app / "Contents/Resources/Yisi_Yisi.bundle/Archivo.ttf").is_file())
         names = {event[0] for event in self.events()}
         self.assertIn("codesign", names)
         self.assertIn("open", names)

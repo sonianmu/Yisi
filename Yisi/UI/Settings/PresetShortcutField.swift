@@ -20,7 +20,7 @@ struct PresetShortcutField: View {
         HStack(spacing: 4) {
             Button(action: { isRecording ? stopRecording() : startRecording() }) {
                 Text(label)
-                    .font(.system(size: 11, design: .serif))
+                    .font(.yisi(11))
                     .monospacedDigit()
                     .foregroundColor(color)
                     .lineLimit(1)

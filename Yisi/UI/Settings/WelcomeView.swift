@@ -100,16 +100,16 @@ struct WelcomeView: View {
         VStack(alignment: .leading, spacing: 0) {
             brandMark.padding(.top, 56)
             Text("Yisi")
-                .font(.system(size: 48, weight: .light, design: .serif))
+                .font(.yisi(48, weight: .light))
                 .tracking(1).padding(.top, 26)
             Text("有Yisi，才有意思。".localized)
-                .font(.system(size: 15, design: .serif))
+                .font(.yisi(15))
                 .foregroundColor(.secondary).padding(.top, 8)
             Rectangle().fill(AppColors.primary.opacity(0.15)).frame(height: 1).padding(.vertical, 28)
             Text("Select. Translate. Keep your flow.".localized)
-                .font(.system(size: 19, weight: .medium, design: .serif))
+                .font(.yisi(19, weight: .medium))
             Text("Translate selected text or screenshots, without leaving what you are doing.".localized)
-                .font(.system(size: 13)).foregroundColor(.secondary)
+                .font(.yisi(13)).foregroundColor(.secondary)
                 .fixedSize(horizontal: false, vertical: true).padding(.top, 10)
             Spacer()
             Button { withAnimation { currentStep = 1 } } label: {
@@ -118,7 +118,7 @@ struct WelcomeView: View {
                     Spacer()
                     Image(systemName: "arrow.right")
                 }
-                .font(.system(size: 14, weight: .medium))
+                .font(.yisi(14, weight: .medium))
                 .foregroundColor(AppColors.onAccent).padding(14)
                 .background(AppColors.primary, in: RoundedRectangle(cornerRadius: 8))
             }
@@ -132,10 +132,10 @@ struct WelcomeView: View {
     private var aiConfigPage: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text("AI Service".localized)
-                .font(.system(size: 24, weight: .medium, design: .serif))
+                .font(.yisi(24, weight: .medium))
                 .padding(.top, 26)
             Text("Enter your API key and model. Next will test and save before continuing. You can also configure this later in Settings.".localized)
-                .font(.system(size: 12)).foregroundColor(.secondary)
+                .font(.yisi(12)).foregroundColor(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
             ScrollView {
                 AIServiceConfigurationForm(form: aiServiceForm).padding(.vertical, 4)
@@ -155,7 +155,7 @@ struct WelcomeView: View {
                     .buttonStyle(.plain).foregroundColor(AppColors.primary)
                     .disabled(aiServiceForm.testing)
             }
-            .font(.system(size: 13)).padding(.bottom, 30)
+            .font(.yisi(13)).padding(.bottom, 30)
         }
         .padding(.horizontal, 36)
     }
@@ -174,11 +174,11 @@ struct WelcomeView: View {
                 .padding(.bottom, 24)
 
             Text("Accessibility".localized)
-                .font(.system(size: 22, weight: .medium, design: .serif))
+                .font(.yisi(22, weight: .medium))
                 .foregroundColor(.primary)
 
             Text("Global hotkeys & text capture".localized)
-                .font(.system(size: 12, design: .serif))
+                .font(.yisi(12))
                 .foregroundColor(.secondary)
                 .padding(.top, 8)
 
@@ -200,7 +200,7 @@ struct WelcomeView: View {
                 }
             }) {
                 Text((accessibilityGranted ? "Next" : (requestedAccessibility ? "Open System Settings" : "Enable")).localized)
-                    .font(.system(size: 14, weight: .medium, design: .serif))
+                    .font(.yisi(14, weight: .medium))
                     .foregroundColor(accessibilityGranted ? AppColors.onAccent : AppColors.primary)
                     .frame(maxWidth: .infinity)
                     .frame(height: 42)
@@ -240,16 +240,16 @@ struct WelcomeView: View {
                 .padding(.bottom, 24)
 
             Text("Screen Recording".localized)
-                .font(.system(size: 22, weight: .medium, design: .serif))
+                .font(.yisi(22, weight: .medium))
                 .foregroundColor(.primary)
 
             Text("Screenshot translation".localized)
-                .font(.system(size: 12, design: .serif))
+                .font(.yisi(12))
                 .foregroundColor(.secondary)
                 .padding(.top, 8)
 
             Text("Turn on Yisi in System Settings, then return here.".localized)
-                .font(.system(size: 12))
+                .font(.yisi(12))
                 .foregroundColor(.secondary)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 44)
@@ -273,7 +273,7 @@ struct WelcomeView: View {
                 }
             }) {
                 Text((requestingScreenCapture ? "Waiting for authorization…" : (screenCaptureGranted ? "Next" : (requestedScreenCapture ? "Open System Settings" : "Enable"))).localized)
-                    .font(.system(size: 14, weight: .medium, design: .serif))
+                    .font(.yisi(14, weight: .medium))
                     .foregroundColor(screenCaptureGranted ? AppColors.onAccent : AppColors.primary)
                     .frame(maxWidth: .infinity)
                     .frame(height: 42)
@@ -306,14 +306,14 @@ struct WelcomeView: View {
         VStack(alignment: .leading, spacing: 0) {
             brandMark.padding(.top, 64)
             Text("You are ready.".localized)
-                .font(.system(size: 30, weight: .light, design: .serif)).padding(.top, 32)
+                .font(.yisi(30, weight: .light)).padding(.top, 32)
             Text("Yisi is in your menu bar. Select text or take a screenshot to begin.".localized)
-                .font(.system(size: 13)).foregroundColor(.secondary)
+                .font(.yisi(13)).foregroundColor(.secondary)
                 .fixedSize(horizontal: false, vertical: true).padding(.top, 14)
             Spacer()
             Button(action: onComplete) {
                 Text("Get Started".localized)
-                    .font(.system(size: 14, weight: .medium)).foregroundColor(AppColors.onAccent)
+                    .font(.yisi(14, weight: .medium)).foregroundColor(AppColors.onAccent)
                     .frame(maxWidth: .infinity).padding(.vertical, 14)
                     .background(AppColors.primary, in: RoundedRectangle(cornerRadius: 8))
             }

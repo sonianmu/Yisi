@@ -23,7 +23,7 @@ struct AIServiceConfigurationForm: View {
     private var providerModules: [Module] { offersModules ? modules.modules(for: .provider) : [] }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: SettingsLayout.rowSpacing) {
             adaptationRow("Provider") {
                 CustomDropdown(selection: Binding(get: {
                     moduleID.map { AIConfigurationStore.modulePrefix + $0 } ?? form.draft.provider.rawValue
@@ -61,8 +61,8 @@ struct AIServiceConfigurationForm: View {
 
     @ViewBuilder
     private var serviceForm: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: SettingsLayout.rowSpacing) {
                 if form.draft.provider == .custom {
                     adaptationRow("Protocol") {
                         CustomDropdown(selection: Binding(get: { form.draft.apiProtocol.rawValue }, set: { raw in
@@ -77,7 +77,6 @@ struct AIServiceConfigurationForm: View {
                 }
                 APIKeyInput(label: "API Key".localized, text: $form.draft.apiKey, placeholder: "Enter an API key.".localized)
                 APIKeyInput(label: "Model".localized, text: $form.draft.model, placeholder: "Enter any model ID".localized, isSecure: false)
-                Divider().opacity(0.2)
                 adaptationRow("Deep Thinking Preference") { ElegantToggle(isOn: $form.draft.deepThinking) }
                 CapabilityEditor(capabilities: $form.draft.capabilities, apiProtocol: form.draft.apiProtocol)
             }
@@ -88,15 +87,9 @@ struct AIServiceConfigurationForm: View {
                     .foregroundColor(AppColors.primary)
                     .disabled(form.testing)
                 if form.testing { ProgressView().controlSize(.small) }
+                TestResult(text: form.status, succeeded: form.succeeded, dismiss: form.clearStatus)
             }
-            .font(.system(size: 12))
-            if !form.status.isEmpty {
-                Text(form.status)
-                    .font(.system(size: 11))
-                    .foregroundColor(form.succeeded ? .secondary : .red)
-                    .textSelection(.enabled)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
+            .font(.yisi(12))
         }
     }
 
@@ -119,7 +112,7 @@ struct CapabilityEditor: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             DisclosureGroup("Advanced Adaptation".localized) {
-                VStack(alignment: .leading, spacing: 12) {
+                VStack(alignment: .leading, spacing: SettingsLayout.rowSpacing) {
                     adaptationRow("Reasoning Control") {
                         let options = ReasoningControl.options(for: apiProtocol)
                         CustomDropdown(selection: Binding(get: { capabilities.reasoning.rawValue }, set: { raw in
@@ -130,7 +123,7 @@ struct CapabilityEditor: View {
                         APIKeyInput(label: "Enabled Value".localized, text: $capabilities.onValue, placeholder: "high", isSecure: false)
                         APIKeyInput(label: "Disabled Value".localized, text: $capabilities.offValue, placeholder: "low / none / disabled", isSecure: false)
                         Text("Use values supported by this model. Low effort still enables reasoning.".localized)
-                            .font(.system(size: 11, design: .serif)).foregroundStyle(.secondary)
+                            .font(.yisi(11)).foregroundStyle(.secondary)
                     }
                     if [.geminiBudget, .anthropicBudget].contains(capabilities.reasoning) {
                         integerRow("Thinking Budget", value: $capabilities.thinkingBudget)
@@ -158,7 +151,7 @@ struct CapabilityEditor: View {
                 }
                 .padding(.top, 10)
             }
-            .font(.system(size: 12, design: .serif))
+            .font(.yisi(12))
         }
     }
 
@@ -172,12 +165,7 @@ struct CapabilityEditor: View {
 }
 
 private func adaptationRow<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
-    HStack {
-        Text(title.localized).font(.system(size: 13, design: .serif)).foregroundStyle(.secondary)
-            .frame(width: 80, alignment: .leading)
-        content()
-        Spacer(minLength: 0)
-    }
+    SettingsRow(title: title.localized, control: content)
 }
 
 /// An AI service module chosen as the provider: "Test and Use", which only switches after a
@@ -198,7 +186,7 @@ private struct ProviderModulePanel: View {
             if let module = store.module(moduleID) {
                 let moduleStatus = ModuleStatus(module, store: store)
                 Text(module.manifest.description ?? module.meta)
-                    .font(.system(size: 12, design: .serif))
+                    .font(.yisi(12))
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
                 HStack(spacing: 10) {
@@ -211,20 +199,14 @@ private struct ProviderModulePanel: View {
                         Text(moduleStatus.label).foregroundColor(moduleStatus.color)
                     }
                     if testing { ProgressView().controlSize(.small) }
+                    TestResult(text: status, succeeded: succeeded) { status = "" }
                     Spacer()
                     ManageInModulesLink(role: .provider)
                 }
-                .font(.system(size: 12))
-                if !status.isEmpty {
-                    Text(status)
-                        .font(.system(size: 11))
-                        .foregroundColor(succeeded ? .secondary : .red)
-                        .textSelection(.enabled)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
+                .font(.yisi(12))
             } else {
                 Text(ModuleError.notFound(moduleID).localizedDescription)
-                    .font(.system(size: 12, design: .serif))
+                    .font(.yisi(12))
                     .foregroundStyle(.orange)
             }
         }
@@ -236,15 +218,43 @@ private struct ProviderModulePanel: View {
         Task { @MainActor in
             defer { testing = false }
             do {
-                let answer = try await store.text(module.id, ModuleRequest(text: "Reply with OK to confirm the connection."))
+                _ = try await store.text(module.id, ModuleRequest(text: "Reply with OK to confirm the connection."))
                 UserDefaults.standard.set(AIConfigurationStore.modulePrefix + module.id, forKey: key)
                 UserDefaults.standard.set("ai", forKey: AppDefaults.Keys.translationEngine)
                 succeeded = true
-                status = "Connection successful. Settings saved.".localized + "\n" + String(answer.prefix(160))
+                status = "Connection successful. Settings saved.".localized
             } catch {
                 succeeded = false
-                status = "Test failed. Previous settings were kept.".localized + "\n" + error.localizedDescription
+                status = "Test failed. Previous settings were kept.".localized + " " + error.localizedDescription
             }
+        }
+    }
+}
+
+/// A test's outcome on one line beside its button. It fades away on its own; a failure stays a moment
+/// longer so its reason can be read, and the full text is in the tooltip if it is cut short.
+private struct TestResult: View {
+    let text: String
+    let succeeded: Bool
+    let dismiss: () -> Void
+
+    var body: some View {
+        ZStack {
+            if !text.isEmpty {
+                Text(text)
+                    .font(.yisi(11))
+                    .foregroundColor(succeeded ? .secondary : .red)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                    .help(text)
+                    .transition(.opacity)
+            }
+        }
+        .animation(.easeOut(duration: 0.25), value: text)
+        .task(id: text) {
+            guard !text.isEmpty else { return }
+            try? await Task.sleep(for: .seconds(succeeded ? 1.5 : 4))
+            if !Task.isCancelled { dismiss() }
         }
     }
 }

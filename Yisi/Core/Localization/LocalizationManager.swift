@@ -18,6 +18,7 @@ class LocalizationManager: ObservableObject {
     }
     
     private let enStrings: [String: String] = [
+        "Deep Thinking Preference": "Deep Thinking",
         // General
         "Settings": "Settings",
         "History": "History",
@@ -303,7 +304,8 @@ class LocalizationManager: ObservableObject {
 
         // Modules
         "AI Services": "AI 服务",
-        "Powers Yisi's translation. Choose it under AI Service.": "为 Yisi 的翻译提供模型，在「AI 服务」中选用。",
+        "Provides models for Yisi. Choose it under AI Service.": "为 Yisi 提供模型，在「AI 服务」中选用。",
+        "Close popup": "关闭弹窗",
         "Works on the selected text or screenshot. Choose it under Modes.": "处理选中的文字或截图，在「模式」中选用。",
         "Replaces the translation engine. Choose it under Translation → Other Sources.": "替代翻译引擎，在「翻译 → 其他翻译源」中选用。",
         "No translation sources yet": "还没有翻译源",
@@ -776,6 +778,14 @@ class LocalizationManager: ObservableObject {
         "Could not prepare authorization": "暂时无法准备授权",
         "Please reopen the installed Yisi app and try again. Existing permissions have not been reset.": "请重新打开已安装的 Yisi 后重试。已有权限未被重置。",
         "Check for Updates": "检查更新",
+        "Updates": "软件更新",
+        "Maintenance": "维护",
+        "Help": "帮助",
+        "Installed": "已安装",
+        "Color Scheme": "配色模式",
+        "Translation Source": "翻译源",
+        "Add Rule": "添加规则",
+        "Use the same API": "使用同一套 API",
         "Update Available": "发现新版本",
         "Current Version": "当前版本",
         "A new version %@ is available. Current version: %@": "新版本 %@ 已发布，当前版本：%@",

@@ -25,7 +25,7 @@ struct HistoryView: View {
                                 .font(.system(size: 32, weight: .light))
                                 .foregroundColor(.secondary.opacity(0.3))
                             Text("No matches found".localized)
-                                .font(.system(size: 14, weight: .medium, design: .serif))
+                                .font(.yisi(14, weight: .medium))
                                 .foregroundColor(.secondary.opacity(0.8))
                             Spacer()
                         }
@@ -55,7 +55,7 @@ struct HistoryView: View {
                                     withAnimation { historyManager.loadMoreItems() }
                                 }) {
                                     Text("Load More".localized)
-                                        .font(.system(size: 12, design: .serif))
+                                        .font(.yisi(12))
                                         .foregroundColor(.secondary.opacity(0.5))
                                         .padding(.vertical, 20)
                                 }
@@ -300,7 +300,7 @@ struct HistoryRowView: View {
                 HistoryTypeTag(item: item)
                 
                 Text(item.timestamp.formattedRelative())
-                    .font(.system(size: 11, design: .serif))
+                    .font(.yisi(11))
                     .foregroundColor(.secondary.opacity(0.5))
                 
                 Spacer()
@@ -313,7 +313,7 @@ struct HistoryRowView: View {
                 if !item.targetText.isEmpty {
                     CollapsibleText(
                         text: item.targetText,
-                        font: .system(size: 13, design: .serif),
+                        font: .yisi(13),
                         color: AppColors.text,
                         isExpanded: isExpanded
                     )
@@ -324,7 +324,7 @@ struct HistoryRowView: View {
                 if !item.sourceText.isEmpty && item.sourceText != "🖼️ Image Recognition" {
                     CollapsibleText(
                         text: item.sourceText,
-                        font: .system(size: 13, design: .serif),
+                        font: .yisi(13),
                         color: AppColors.text.opacity(0.6),
                         isExpanded: isExpanded
                     )
@@ -356,7 +356,7 @@ struct HistoryRowView: View {
                             }
                         
                         Text("View Image".localized)
-                            .font(.system(size: 11, design: .serif))
+                            .font(.yisi(11))
                             .foregroundColor(.secondary)
                     }
                     .padding(.top, 4)
@@ -368,7 +368,7 @@ struct HistoryRowView: View {
                         VStack(alignment: .leading, spacing: 4) {
                             Divider().opacity(0.1).padding(.vertical, 2)
                             Text(prompt)
-                                .font(.system(size: 11, design: .serif).italic())
+                                .font(.yisi(11).italic())
                                 .foregroundColor(AppColors.primary.opacity(0.8))
                                 .frame(maxWidth: .infinity, alignment: .leading)
                                 .textSelection(.enabled)
@@ -411,10 +411,10 @@ struct EmptyHistoryView: View {
                 .font(.system(size: 32, weight: .light))
                 .foregroundColor(.secondary.opacity(0.2))
             Text("No History".localized)
-                .font(.system(size: 14, weight: .medium, design: .serif))
+                .font(.yisi(14, weight: .medium))
                 .foregroundColor(.secondary.opacity(0.8))
             Text("Your recent translations will appear here.".localized)
-                .font(.system(size: 12, design: .serif))
+                .font(.yisi(12))
                 .foregroundColor(.secondary.opacity(0.5))
             Spacer()
         }
@@ -433,7 +433,7 @@ struct HistoryTypeTag: View {
                 .frame(width: 4, height: 4)
             
             Text(label)
-                .font(.system(size: 10, weight: .medium, design: .serif))
+                .font(.yisi(10, weight: .medium))
                 .foregroundColor(AppColors.text.opacity(0.6))
         }
         .padding(.horizontal, 6)

@@ -34,7 +34,7 @@ struct PeriscopeSearchField: View {
                             
                             TextField("Search history...".localized, text: $text)
                                 .textFieldStyle(.plain)
-                                .font(.system(size: 15, weight: .light, design: .serif))
+                                .font(.yisi(15, weight: .light))
                                 .focused($isFocused)
                                 .onSubmit { }
                             
@@ -53,7 +53,7 @@ struct PeriscopeSearchField: View {
                         // Collapsed: Label or Active Filter
                         if text.isEmpty {
                             Text("Search".localized)
-                                .font(.system(size: 13, weight: .medium, design: .serif))
+                                .font(.yisi(13, weight: .medium))
                                 .tracking(0.5)
                                 .foregroundColor(.primary.opacity(0.7))
                                 .transition(.scale.combined(with: .opacity))
@@ -61,7 +61,7 @@ struct PeriscopeSearchField: View {
                             // Active Filter State ("Hidden Search Button")
                             // Minimalist: Just the text, centered.
                             Text(text)
-                                .font(.system(size: 13, weight: .medium, design: .serif))
+                                .font(.yisi(13, weight: .medium))
                                 .foregroundColor(.primary.opacity(0.85)) // Slightly darker to show importance
                                 .lineLimit(1)
                                 .padding(.horizontal, 10)

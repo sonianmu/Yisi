@@ -12,12 +12,29 @@ enum SettingsSnapshots {
         var views: [(String, AnyView, CGSize)] = [
             ("modes", AnyView(page(ModesSettingsView())), CGSize(width: 560, height: 620)),
             ("translators", AnyView(page(TranslatorPicker())), CGSize(width: 560, height: 160)),
-            ("data", AnyView(page(DataSettingsSection())), CGSize(width: 560, height: 180)),
+            ("data", AnyView(page(DataSettingsRow().settingsForm())), CGSize(width: 560, height: 180)),
             ("about", AnyView(page(AboutView())), CGSize(width: 414, height: 420)),
+            ("yisi-button", AnyView(YisiButton(isLoading: false) {}.padding(12)), CGSize(width: 84, height: 52)),
             ("translation", AnyView(page(TranslationSettingsView())), CGSize(width: 414, height: 420)),
             ("editor", AnyView(PresetEditor(preset: PromptPreset(id: UUID(), name: "", inputPerception: "", outputInstruction: ""),
                                             isNew: true, onSave: { _ in }, onCancel: {})), CGSize(width: 420, height: 520)),
         ]
+        for section in ["General", "AI Service", "Modes", "Translation", "Modules", "About"] {
+            let name = section.lowercased().replacingOccurrences(of: " ", with: "-")
+            views.append(("settings-\(name)", AnyView(SettingsContent(section: section)), CGSize(
+                width: AppDefaults.settingsWindowWidth, height: AppDefaults.settingsWindowHeight - 64
+            )))
+        }
+        for section in ["General", "AI Service", "Modules"] {
+            let name = section.lowercased().replacingOccurrences(of: " ", with: "-")
+            views.append(("settings-compact-\(name)", AnyView(SettingsContent(section: section)), CGSize(width: 460, height: 276)))
+        }
+        views.append(("settings-ai-service-bottom", AnyView(SettingsContent(section: "AI Service")), CGSize(
+            width: AppDefaults.settingsWindowWidth, height: AppDefaults.settingsWindowHeight - 64
+        )))
+        views.append(("settings-general-bottom", AnyView(SettingsContent(section: "General")), CGSize(
+            width: AppDefaults.settingsWindowWidth, height: AppDefaults.settingsWindowHeight - 64
+        )))
         for role in ModuleRole.tabs {
             views.append(("modules-\(role.rawValue)", AnyView(page(ModulesSettingsView().onAppear {
                 UserDefaults.standard.set(role.rawValue, forKey: ModulesPage.tabKey)
@@ -51,12 +68,25 @@ enum SettingsSnapshots {
                 window.contentView = hosting
                 hosting.layoutSubtreeIfNeeded()
                 RunLoop.main.run(until: Date().addingTimeInterval(name.hasPrefix("popup") ? 2 : 0.2))
+                if name.hasSuffix("-bottom"), let scroll = settingsScrollView(in: hosting) {
+                    let clip = scroll.contentView
+                    let end = max(0, (scroll.documentView?.frame.maxY ?? 0) - clip.bounds.height)
+                    clip.scroll(to: CGPoint(x: clip.bounds.minX, y: end))
+                    scroll.reflectScrolledClipView(clip)
+                    scroll.flashScrollers()
+                    RunLoop.main.run(until: Date().addingTimeInterval(0.15))
+                }
                 guard let bitmap = hosting.bitmapImageRepForCachingDisplay(in: hosting.bounds) else { continue }
                 hosting.cacheDisplay(in: hosting.bounds, to: bitmap)
                 let file = folder.appendingPathComponent("\(name)-\(scheme == .dark ? "dark" : "light").png")
                 try? bitmap.representation(using: .png, properties: [:])?.write(to: file)
             }
         }
+    }
+
+    private static func settingsScrollView(in view: NSView) -> YisiScrollView? {
+        if let scroll = view as? YisiScrollView { return scroll }
+        return view.subviews.lazy.compactMap { settingsScrollView(in: $0) }.first
     }
 
     private static func page<Content: View>(_ content: Content) -> some View {

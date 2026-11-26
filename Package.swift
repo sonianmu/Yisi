@@ -12,7 +12,8 @@ let package = Package(
     targets: [
         .executableTarget(
             name: "Yisi",
-            path: "Yisi"
+            path: "Yisi",
+            resources: [.process("Resources")]
         ),
         .testTarget(name: "YisiTests", dependencies: ["Yisi"], path: "Tests/YisiTests")
     ]

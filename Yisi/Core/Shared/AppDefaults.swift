@@ -115,8 +115,8 @@ enum AppDefaults {
     // Window
     static let popupWindowWidth: CGFloat = 600
     static let popupWindowHeight: CGFloat = 330
-    static let settingsWindowWidth: CGFloat = 550
-    static let settingsWindowHeight: CGFloat = 420
+    static let settingsWindowWidth: CGFloat = 480
+    static let settingsWindowHeight: CGFloat = 360
 
     // MARK: - Registration
 

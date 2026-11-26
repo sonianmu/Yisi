@@ -84,7 +84,7 @@ Releases include standard `Yisi.dmg` and `Yisi-Assisted.zip`, containing the sam
 ### Five-Minute Setup
 
 1. Obtain an API key and a model ID from your provider.
-2. Open **Settings > AI Services**, select a provider, and enter both fields. Model IDs are initially blank; existing saved models are retained.
+2. Open **Settings > Service**, select a provider, and enter both fields. Model IDs are initially blank; existing saved models are retained.
 3. For another endpoint, choose **Custom Service** and enter its protocol and base URL. Expand **Advanced Adaptation** only if the model needs specific reasoning or request settings.
 4. Click **Test and Save**. A successful response saves the configuration and selects AI Translation. A failed test shows the error and keeps the previous configuration.
 5. For screenshots, choose system OCR or AI Vision. AI Vision reuses the text service by default; turn off **Same API** to configure a separate service using the same provider list. Ensure the selected model supports vision input. No provider or legacy capability flag disables the switch; unsupported image requests return the service's error.

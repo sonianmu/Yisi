@@ -44,7 +44,7 @@ struct DialogActionButton: View {
     var body: some View {
         Button(action: action) {
             Text(title)
-                .font(.system(size: 13, weight: primary ? .medium : .regular, design: .serif))
+                .font(.yisi(13, weight: primary ? .medium : .regular))
                 .foregroundStyle(primary ? AppColors.onAccent : Color.secondary)
                 .frame(maxWidth: .infinity)
                 .frame(height: 34)
@@ -105,10 +105,10 @@ private struct AppAlertContent: View {
                     .accessibilityHidden(true)
                 VStack(alignment: .leading, spacing: 10) {
                     Text(title)
-                        .font(.system(size: 20, weight: .medium, design: .serif))
+                        .font(.yisi(20, weight: .medium))
                         .foregroundStyle(.primary)
                     Text(message)
-                        .font(.system(size: 13, design: .serif))
+                        .font(.yisi(13))
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                         .textSelection(.enabled)

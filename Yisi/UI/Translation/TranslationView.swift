@@ -112,6 +112,10 @@ struct TranslationView: View {
             if #available(macOS 15.0, *) {
                 SystemTranslationHost()
             }
+
+            if closeMode == "xButton", mode != .translation, mode != .custom, errorMessage == nil {
+                Color.clear.frame(height: 32)
+            }
             
             // Custom Mode Input Fields (Only visible in Temporary Custom Mode)
             if mode == .custom {
@@ -119,7 +123,7 @@ struct TranslationView: View {
                     // Narrative Input Structure
                     HStack(alignment: .top, spacing: 6) {
                         Text("I perceive this as".localized)
-                            .font(.system(size: 16, weight: .light, design: .serif))
+                            .font(.yisi(16, weight: .light))
                             .foregroundColor(.secondary)
                             // .padding(.top, 2) Removed for alignment with zero-inset editor
                         
@@ -131,14 +135,14 @@ struct TranslationView: View {
                         .frame(minWidth: 120)
                         
                         Text(",")
-                            .font(.system(size: 16, weight: .light, design: .serif))
+                            .font(.yisi(16, weight: .light))
                             .foregroundColor(.secondary)
                             // .padding(.top, 2)
                     }
                     
                     HStack(alignment: .top, spacing: 6) {
                         Text("please".localized)
-                            .font(.system(size: 16, weight: .light, design: .serif))
+                            .font(.yisi(16, weight: .light))
                             .foregroundColor(.secondary)
                             // .padding(.top, 2)
                         
@@ -150,14 +154,14 @@ struct TranslationView: View {
                         .frame(minWidth: 180)
                         
                         Text(".")
-                            .font(.system(size: 16, weight: .light, design: .serif))
+                            .font(.yisi(16, weight: .light))
                             .foregroundColor(.secondary)
                             // .padding(.top, 2)
                     }
                 }
                 .padding(.horizontal, 20)
                 .padding(.vertical, 20)
-                .padding(.trailing, closeMode == "xButton" ? 40 : 0) // Reserve space for gravity orb
+                .padding(.trailing, closeMode == "xButton" ? 32 : 0)
                 .background(Color.primary.opacity(0.01)) // Almost invisible background
                 .animation(.spring(response: 0.3, dampingFraction: 0.8), value: inputPerceptionHeight)
                 .animation(.spring(response: 0.3, dampingFraction: 0.8), value: outputInstructionHeight)
@@ -168,14 +172,17 @@ struct TranslationView: View {
             if let errorMessage = errorMessage {
                 HStack {
                     Image(systemName: "exclamationmark.triangle.fill").foregroundColor(.orange)
-                    Text(errorMessage).font(.system(size: 13, weight: .medium)).foregroundColor(.primary)
+                    Text(errorMessage).font(.yisi(13, weight: .medium)).foregroundColor(.primary)
                     Spacer()
                     Button("Open Settings".localized) {
                         if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") {
                             NSWorkspace.shared.open(url)
                         }
                     }.buttonStyle(.borderedProminent).controlSize(.small)
-                }.padding().background(Color.orange.opacity(0.1))
+                }
+                .padding()
+                .padding(.trailing, closeMode == "xButton" && mode != .custom ? 32 : 0)
+                .background(Color.orange.opacity(0.1))
             }
             
 
@@ -201,6 +208,7 @@ struct TranslationView: View {
                     Spacer()
                 }
                 .padding(.horizontal, 16)
+                .padding(.trailing, closeMode == "xButton" && errorMessage == nil ? 32 : 0)
                 .padding(.vertical, 8)
                 .background(Color.primary.opacity(0.02))
                 .transition(.opacity)
@@ -225,7 +233,7 @@ struct TranslationView: View {
                             
                             VStack(alignment: .leading, spacing: 4) {
                                 Text("Screenshot".localized)
-                                    .font(.system(size: 12, weight: .medium, design: .serif))
+                                    .font(.yisi(12, weight: .medium))
                                     .foregroundColor(.secondary)
                                 
                                 Text("\(Int(image.size.width)) × \(Int(image.size.height))")
@@ -265,11 +273,11 @@ struct TranslationView: View {
                                 }
                                 
                                 Text("Click to upload image".localized)
-                                    .font(.system(size: 13, weight: .medium, design: .serif))
+                                    .font(.yisi(13, weight: .medium))
                                     .foregroundColor(.secondary)
                                 
                                 Text("or drag & drop".localized)
-                                    .font(.system(size: 11, design: .serif))
+                                    .font(.yisi(11))
                                     .foregroundColor(.secondary.opacity(0.5))
                             }
                             .frame(maxWidth: .infinity)
@@ -298,7 +306,7 @@ struct TranslationView: View {
                                             .padding(.vertical, 20)
                                     } else if translatedText.isEmpty {
                                         Text(translationEngine != "ai" ? "Translation result will appear here...".localized : "AI recognition result will appear here...".localized)
-                                            .font(.system(size: 16, weight: .light, design: .serif))
+                                            .font(.yisi(16, weight: .light))
                                             .foregroundColor(.secondary.opacity(0.5))
                                             .padding(.horizontal, 20)
                                             .padding(.vertical, 20)
@@ -330,7 +338,7 @@ struct TranslationView: View {
                                             .padding(.vertical, 20)
                                     } else if translatedText.isEmpty {
                                         Text(outputPlaceholder)
-                                            .font(.system(size: 16, weight: .light, design: .serif))
+                                            .font(.yisi(16, weight: .light))
                                             .foregroundColor(.secondary.opacity(0.5))
                                             .padding(.horizontal, 20)
                                             .padding(.vertical, 20)
@@ -353,7 +361,7 @@ struct TranslationView: View {
                         .foregroundColor(AppColors.primary)
                     
                     Text("Language pack required for offline translation.".localized)
-                        .font(.system(size: 12, design: .serif))
+                        .font(.yisi(12))
                         .foregroundColor(.primary.opacity(0.8))
                     
                     Spacer()
@@ -366,7 +374,7 @@ struct TranslationView: View {
                             )
                         }) {
                             Text("Download".localized)
-                                .font(.system(size: 11, weight: .medium, design: .serif))
+                                .font(.yisi(11, weight: .medium))
                                 .foregroundColor(AppColors.primary)
                                 .padding(.horizontal, 10)
                                 .padding(.vertical, 4)
@@ -414,17 +422,16 @@ struct TranslationView: View {
         // 3. The content fills the window, titlebar included, so its corners are the window's.
         .clipShape(WindowCorner.window)
         .overlay(WindowCorner.window.stroke(Color.primary.opacity(0.1), lineWidth: 1))
-        .ignoresSafeArea()
         .overlay(alignment: .topTrailing) {
             if closeMode == "xButton" {
                 CloseButton {
                     WindowManager.shared.close()
                 }
-                .padding(8) // Move closer to the edge (was 12)
-                .offset(x: 4, y: -4) // Push slightly out
-                .transition(.scale.combined(with: .opacity))
+                .padding(.top, 4)
+                .padding(.trailing, 4)
             }
         }
+        .ignoresSafeArea()
         .background(WindowAccessor(window: $window))
         .onExitCommand {
             if closeMode == "escKey" {
@@ -845,7 +852,7 @@ struct CustomTextEditor: View {
             // Hide placeholder if text is not empty OR if the field is focused (to prevent overlap with input method candidates)
             if text.isEmpty && !isFocused {
                 Text(placeholder)
-                    .font(.system(size: 16, weight: .light, design: .serif))
+                    .font(.yisi(16, weight: .light))
                     .foregroundColor(AppColors.text.opacity(0.4))
                     .padding(.horizontal, 20)
                     .padding(.vertical, 20)
@@ -957,7 +964,7 @@ struct LanguageSelector: View {
             }
         } label: {
             HStack(spacing: 4) {
-                Text(selection.displayName).font(.system(size: 12, weight: .medium)).foregroundColor(AppColors.text.opacity(0.6))
+                Text(selection.displayName).font(.yisi(12, weight: .medium)).foregroundColor(AppColors.text.opacity(0.6))
             }
         }.menuStyle(.borderlessButton).fixedSize()
     }
@@ -966,7 +973,7 @@ struct LanguageSelector: View {
 struct LanguageButton: View {
     let text: String
     var body: some View {
-        Text(text).font(.system(size: 12, weight: .medium)).foregroundColor(AppColors.text.opacity(0.7)).padding(.horizontal, 8).padding(.vertical, 4).background(AppColors.primary.opacity(0.1)).cornerRadius(4)
+        Text(text).font(.yisi(12, weight: .medium)).foregroundColor(AppColors.text.opacity(0.7)).padding(.horizontal, 8).padding(.vertical, 4).background(AppColors.primary.opacity(0.1)).cornerRadius(4)
     }
 }
 
@@ -1045,6 +1052,7 @@ struct CloseButton: View {
                 .contentShape(Rectangle()) // Ensure the whole frame is clickable
         }
         .buttonStyle(.plain)
+        .accessibilityLabel("Close popup".localized)
         .onHover { hovering in
             isHovering = hovering
         }
@@ -1062,23 +1070,12 @@ struct YisiButton: View {
     
     var body: some View {
         Button(action: action) {
-            ZStack {
-                // Background
-                RoundedRectangle(cornerRadius: 6)
-                    .fill(AppColors.primary.opacity(isLoading ? 0.1 : 1.0))
-                    .animation(.easeInOut(duration: 0.3), value: isLoading)
-                
-                // Text "Yisi"
-                Text("Yisi")
-                    .font(.system(size: 13, weight: .semibold, design: .serif))
-                    .foregroundColor(isLoading ? AppColors.primary : AppColors.onAccent)
-                    // Breathing Animation
-                    .opacity(isLoading ? 0.5 : 1)
-                    .scaleEffect(isLoading ? 0.95 : 1)
-                    .animation(isLoading ? Animation.easeInOut(duration: 0.8).repeatForever(autoreverses: true) : .default, value: isLoading)
-            }
-            .frame(width: 60, height: 28)
-            .shadow(color: Color.black.opacity(isHovering && !isLoading ? 0.1 : 0), radius: 2, x: 0, y: 1)
+            YisiWordmark(size: 13)
+                .foregroundColor(isLoading ? AppColors.primary : AppColors.onAccent)
+                .frame(width: 60, height: 28)
+                .background(AppColors.primary.opacity(isLoading ? 0.1 : 1), in: RoundedRectangle(cornerRadius: 6))
+                .contentShape(RoundedRectangle(cornerRadius: 6))
+                .shadow(color: Color.black.opacity(isHovering && !isLoading ? 0.1 : 0), radius: 2, x: 0, y: 1)
         }
         .buttonStyle(.plain)
         .disabled(isLoading)
@@ -1109,12 +1106,7 @@ struct AppFont {
     let font: NSFont
     
     private init() {
-        let descriptor = NSFont.systemFont(ofSize: 16, weight: .light).fontDescriptor.withDesign(.serif)
-        if let descriptor = descriptor {
-            self.font = NSFont(descriptor: descriptor, size: 16) ?? .systemFont(ofSize: 16, weight: .light)
-        } else {
-            self.font = .systemFont(ofSize: 16, weight: .light)
-        }
+        font = YisiType.nsFont(size: 16, weight: .light)
     }
 }
 

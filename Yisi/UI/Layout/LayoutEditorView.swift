@@ -45,11 +45,11 @@ struct LayoutEditorView: View {
             // Instructions
             VStack(spacing: 20) {
                 Text("Customize Popup Layout".localized)
-                    .font(.system(size: 24, weight: .light, design: .serif))
+                    .font(.yisi(24, weight: .light))
                     .foregroundColor(.secondary)
                 
                 Text("Drag the window to position it. Drag the corner to resize.".localized)
-                    .font(.system(size: 14, design: .serif))
+                    .font(.yisi(14))
                     .foregroundColor(.secondary.opacity(0.8))
                 
                 Spacer()
@@ -79,7 +79,7 @@ struct LayoutEditorView: View {
                                 HStack(spacing: 12) {
                                     Button(action: { onCancel() }) {
                                         Text("Cancel".localized)
-                                            .font(.system(size: 12, design: .serif))
+                                            .font(.yisi(12))
                                             .padding(.horizontal, 10)
                                             .padding(.vertical, 5)
                                             .background(Color.primary.opacity(0.1))
@@ -90,7 +90,7 @@ struct LayoutEditorView: View {
                                     
                                     Button(action: { onSave(frame) }) {
                                         Text("Save".localized)
-                                            .font(.system(size: 12, design: .serif))
+                                            .font(.yisi(12))
                                             .foregroundColor(Color(nsColor: .windowBackgroundColor))
                                             .padding(.horizontal, 10)
                                             .padding(.vertical, 5)

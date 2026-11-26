@@ -18,7 +18,7 @@ extension ModuleRole {
     /// What this kind of module is for, shown while the tab is empty.
     var summary: String {
         switch self {
-        case .provider: return "Powers Yisi's translation. Choose it under AI Service.".localized
+        case .provider: return "Provides models for Yisi. Choose it under AI Service.".localized
         case .preset: return "Works on the selected text or screenshot. Choose it under Modes.".localized
         case .translator: return "Replaces the translation engine. Choose it under Translation → Other Sources.".localized
         }
@@ -84,7 +84,7 @@ struct QuietButton: View {
     var body: some View {
         Button(action: action) {
             Text(title)
-                .font(.system(size: 12, design: .serif))
+                .font(.yisi(12))
                 .foregroundStyle(AppColors.primary)
                 .padding(.horizontal, 10)
                 .frame(height: 26)
@@ -103,7 +103,7 @@ struct TextAction: View {
     var body: some View {
         Button(action: action) {
             Text(title)
-                .font(.system(size: 12, design: .serif))
+                .font(.yisi(12))
                 .foregroundStyle(AppColors.primary)
                 .contentShape(Rectangle())
         }
@@ -135,7 +135,7 @@ struct ManageInModulesLink: View {
     var body: some View {
         Button { ModulesPage.show(role) } label: {
             Text(title.localized)
-                .font(.system(size: 12, design: .serif))
+                .font(.yisi(12))
                 .foregroundStyle(AppColors.primary)
         }
         .buttonStyle(.plain)
@@ -218,7 +218,6 @@ struct ModulesSettingsView: View {
         let issues = store.issues.filter { $0.role == role || $0.role == nil }
         let empty = modules.isEmpty && issues.isEmpty
         VStack(alignment: .leading, spacing: 12) {
-            SectionHeader(title: "Modules".localized)
             ElegantSegmentedPicker(selection: $tab, options: ModuleRole.tabs.map { ($0.rawValue, $0.title) })
                 .padding(.bottom, 4)
 
@@ -238,7 +237,7 @@ struct ModulesSettingsView: View {
             if empty {
                 VStack(spacing: 14) {
                     Text(role.summary)
-                        .font(.system(size: 12, design: .serif))
+                        .font(.yisi(12))
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
                         .fixedSize(horizontal: false, vertical: true)
@@ -260,13 +259,13 @@ struct IssueList: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text("Could Not Load".localized)
-                .font(.system(size: 12, weight: .medium, design: .serif))
+                .font(.yisi(12, weight: .medium))
                 .foregroundStyle(.secondary)
             ForEach(issues) { issue in
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(issue.folder).font(.system(size: 13, design: .serif))
+                    Text(issue.folder).font(.yisi(13))
                     Text(issue.message)
-                        .font(.system(size: 11, design: .serif))
+                        .font(.yisi(11))
                         .foregroundStyle(.orange)
                         .textSelection(.enabled)
                         .fixedSize(horizontal: false, vertical: true)
@@ -288,17 +287,18 @@ struct ModuleRow: View {
             HStack(alignment: .firstTextBaseline, spacing: 12) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(module.name)
-                        .font(.system(size: 13, design: .serif))
+                        .font(.yisi(13))
                         .foregroundStyle(.primary)
                     Text(module.manifest.description ?? module.meta)
-                        .font(.system(size: 11, design: .serif))
+                        .font(.yisi(11))
                         .foregroundStyle(.secondary.opacity(0.8))
                         .lineLimit(1)
                 }
-                Spacer(minLength: 8)
+                Spacer(minLength: 0)
                 Text(status.label)
-                    .font(.system(size: 11, design: .serif))
+                    .font(.yisi(11))
                     .foregroundStyle(status.color)
+                    .fixedSize(horizontal: true, vertical: false)
             }
             .padding(.vertical, 8)
             .padding(.horizontal, 8)
@@ -336,13 +336,13 @@ struct ModuleDetailView: View {
         VStack(alignment: .leading, spacing: 20) {
             VStack(alignment: .leading, spacing: 6) {
                 Text(module.name)
-                    .font(.system(size: 20, weight: .medium, design: .serif))
+                    .font(.yisi(20, weight: .medium))
                 Text(module.meta)
-                    .font(.system(size: 12, design: .serif))
+                    .font(.yisi(12))
                     .foregroundStyle(.secondary)
                 if let description = module.manifest.description {
                     Text(description)
-                        .font(.system(size: 13, design: .serif))
+                        .font(.yisi(13))
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -364,7 +364,7 @@ struct ModuleDetailView: View {
                     line("Receives screenshots as images.".localized)
                 }
                 if case .shortcut(let issue) = status {
-                    Text(issue).font(.system(size: 12, design: .serif)).foregroundStyle(.orange)
+                    Text(issue).font(.yisi(12)).foregroundStyle(.orange)
                 }
             }
 
@@ -373,7 +373,7 @@ struct ModuleDetailView: View {
                 section("Keys") {
                     ForEach(secrets, id: \.self) { name in secretRow(name) }
                     Text("Stored in Keychain. Never written to files or exported.".localized)
-                        .font(.system(size: 11, design: .serif))
+                        .font(.yisi(11))
                         .foregroundStyle(.secondary.opacity(0.7))
                 }
             }
@@ -382,7 +382,7 @@ struct ModuleDetailView: View {
                 HStack(spacing: 8) {
                     TextField("", text: $sample)
                         .textFieldStyle(.plain)
-                        .font(.system(size: 13, design: .serif))
+                        .font(.yisi(13))
                         .padding(.horizontal, 8)
                         .frame(height: 26)
                         .background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 6))
@@ -395,7 +395,7 @@ struct ModuleDetailView: View {
                 if !result.isEmpty {
                     ScrollView {
                         Text(result)
-                            .font(.system(size: 13, design: .serif))
+                            .font(.yisi(13))
                             .foregroundStyle(failed ? Color.orange : Color.primary)
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .textSelection(.enabled)
@@ -445,7 +445,7 @@ struct ModuleDetailView: View {
 
     private func line(_ text: String) -> some View {
         Text(text)
-            .font(.system(size: 12, design: .serif))
+            .font(.yisi(12))
             .foregroundStyle(.primary.opacity(0.85))
             .textSelection(.enabled)
             .fixedSize(horizontal: false, vertical: true)
@@ -455,19 +455,19 @@ struct ModuleDetailView: View {
     private func secretRow(_ name: String) -> some View {
         HStack(spacing: 8) {
             Text(name)
-                .font(.system(size: 13, design: .serif))
+                .font(.yisi(13))
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
                 .frame(width: 80, alignment: .leading)
             if store.hasSecret(name, for: module) {
-                Text("Saved".localized).font(.system(size: 12, design: .serif)).foregroundStyle(.secondary)
+                Text("Saved".localized).font(.yisi(12)).foregroundStyle(.secondary)
                 Spacer()
                 QuietButton(title: "Delete".localized) { store.deleteSecret(name, for: module) }
             } else {
                 SecureField("Paste the key".localized, text: Binding(get: { secretDrafts[name] ?? "" },
                                                                     set: { secretDrafts[name] = $0 }))
                     .textFieldStyle(.plain)
-                    .font(.system(size: 12))
+                    .font(.yisi(12))
                     .padding(.horizontal, 8)
                     .frame(height: 26)
                     .background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 6))
@@ -549,7 +549,7 @@ struct TranslatorPicker: View {
             if translators.isEmpty {
                 HStack {
                     Text("No translation sources yet".localized)
-                        .font(.system(size: 12, design: .serif))
+                        .font(.yisi(12))
                         .foregroundStyle(.secondary.opacity(0.7))
                     Spacer()
                     ManageInModulesLink(role: .translator, title: "Go to Modules")
@@ -560,7 +560,7 @@ struct TranslatorPicker: View {
                     if let selected = translators.first(where: { $0.id == selectedID }) {
                         let status = ModuleStatus(selected, store: store)
                         if status != .ready {
-                            Text(status.label).font(.system(size: 12, design: .serif)).foregroundStyle(status.color)
+                            Text(status.label).font(.yisi(12)).foregroundStyle(status.color)
                         }
                     }
                     Spacer()
@@ -578,30 +578,22 @@ struct TranslatorPicker: View {
 // MARK: - Data (General)
 
 /// Export and import of everything the user owns. Lives in General, beside Repair.
-struct DataSettingsSection: View {
+struct DataSettingsRow: View {
     @State private var status = ""
     @State private var working = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            SectionHeader(title: "Your Data".localized)
+        SettingsRow(title: "Your Data".localized, detail: status.isEmpty ? nil : status) {
             HStack(spacing: 16) {
-                TextAction(title: "Export".localized, action: export)
-                TextAction(title: "Import".localized, action: importArchive)
                 TextAction(title: "Show Folder".localized) {
                     try? YisiHome.shared.prepare()
                     NSWorkspace.shared.open(YisiHome.shared.root)
                 }
+                TextAction(title: "Import".localized, action: importArchive)
+                TextAction(title: "Export".localized, action: export)
                 if working { ProgressView().controlSize(.small) }
             }
             .disabled(working)
-            if !status.isEmpty {
-                Text(status)
-                    .font(.system(size: 11, design: .serif))
-                    .foregroundStyle(.secondary)
-                    .textSelection(.enabled)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
         }
     }
 

@@ -413,7 +413,7 @@ private struct UpdateProgressView: View {
                     .controlSize(.small)
                     .tint(AppColors.primary)
                 Text(manager.progressStatus)
-                    .font(.system(size: 13, design: .serif))
+                    .font(.yisi(13))
                     .foregroundStyle(.secondary)
             }
             .frame(width: 320, height: 156, alignment: .center)
@@ -436,19 +436,19 @@ private struct UpdateAlertView: View {
             VStack(alignment: .leading, spacing: 20) {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Update Available".localized)
-                        .font(.system(size: 20, weight: .medium, design: .serif))
+                        .font(.yisi(20, weight: .medium))
                         .foregroundStyle(.primary)
                     HStack(spacing: 8) {
                         Text("v\(currentVersion)").foregroundStyle(.secondary)
                         Image(systemName: "arrow.right").foregroundStyle(.tertiary)
                         Text("v\(newVersion)").foregroundStyle(AppColors.primary)
                     }
-                    .font(.system(size: 12, design: .serif))
+                    .font(.yisi(12))
                 }
                 if !releaseNotes.isEmpty {
                     ScrollView(.vertical) {
                         Text(releaseNotes)
-                            .font(.system(size: 12, design: .serif))
+                            .font(.yisi(12))
                             .foregroundStyle(.secondary)
                             .lineSpacing(4)
                             .frame(maxWidth: .infinity, alignment: .leading)

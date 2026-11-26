@@ -10,55 +10,50 @@ struct ThemeColorSettingsView: View {
     @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
-        HStack {
-            Text("Color Palette".localized)
-                .foregroundColor(.secondary)
-                .frame(width: 80, alignment: .leading)
-
-            Button {
-                showAdvanced = false
-                showPalettes.toggle()
-            } label: {
-                HStack(spacing: 7) {
-                    swatch(accent: AppColors.primary, tint: currentTint)
-                    Image(systemName: "chevron.down")
-                        .font(.system(size: 10, weight: .medium))
-                        .foregroundColor(.secondary)
+        SettingsRow(title: "Color Palette".localized) {
+            HStack(spacing: 16) {
+                Button {
+                    showAdvanced = false
+                    showPalettes.toggle()
+                } label: {
+                    HStack(spacing: 7) {
+                        swatch(accent: AppColors.primary, tint: currentTint)
+                        Image(systemName: "chevron.down")
+                            .font(.system(size: 10, weight: .medium))
+                            .foregroundColor(.secondary)
+                    }
+                    .frame(minHeight: 18)
+                    .contentShape(Rectangle())
                 }
-                .frame(minHeight: 18)
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Color Palette".localized)
-            .accessibilityValue((selectedPreset?.name ?? "Custom Palette").localized)
-            .popover(isPresented: $showPalettes, arrowEdge: .bottom) {
-                Group {
-                    if showAdvanced {
-                        advancedControls
-                            .padding(16)
-                            .frame(width: 300)
-                    } else {
-                        paletteOptions
+                .buttonStyle(.plain)
+                .accessibilityLabel("Color Palette".localized)
+                .accessibilityValue((selectedPreset?.name ?? "Custom Palette").localized)
+                .popover(isPresented: $showPalettes, arrowEdge: .bottom) {
+                    Group {
+                        if showAdvanced {
+                            advancedControls
+                                .padding(16)
+                                .frame(width: 300)
+                        } else {
+                            paletteOptions
+                        }
+                    }
+                    .presentationBackground {
+                        ThemeBackground()
                     }
                 }
-                .presentationBackground {
-                    ThemeBackground()
+
+                Button {
+                    WindowManager.shared.show(text: "")
+                } label: {
+                    Image(systemName: "rectangle.on.rectangle")
+                        .foregroundColor(.secondary)
                 }
+                .buttonStyle(.plain)
+                .help("Preview Popup".localized)
+                .accessibilityLabel("Preview Popup".localized)
             }
-
-            Spacer()
-
-            Button {
-                WindowManager.shared.show(text: "")
-            } label: {
-                Image(systemName: "rectangle.on.rectangle")
-                    .foregroundColor(.secondary)
-            }
-            .buttonStyle(.plain)
-            .help("Preview Popup".localized)
-            .accessibilityLabel("Preview Popup".localized)
         }
-        .font(.system(size: 13, design: .serif))
     }
 
     private var selectedPreset: ThemePreset? {
@@ -126,7 +121,7 @@ struct ThemeColorSettingsView: View {
     private var advancedControls: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Advanced Customization".localized)
-                .font(.system(size: 13, weight: .medium, design: .serif))
+                .font(.yisi(13, weight: .medium))
 
             ColorPicker("Theme Color".localized, selection: accentBinding, supportsOpacity: false)
 
@@ -153,7 +148,7 @@ struct ThemeColorSettingsView: View {
             .buttonStyle(.plain)
             .foregroundColor(AppColors.primary)
         }
-        .font(.system(size: 12, design: .serif))
+        .font(.yisi(12))
         .controlSize(.small)
     }
 

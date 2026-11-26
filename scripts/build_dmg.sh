@@ -61,6 +61,7 @@ echo "Building x86_64..."
 swift build -c release --arch x86_64
 X86_BIN="${BUILD_DIR}/${APP_NAME}-x86_64"
 cp "$(swift build -c release --arch x86_64 --show-bin-path)/${APP_NAME}" "${X86_BIN}"
+cp -R "$(swift build -c release --arch x86_64 --show-bin-path)/Yisi_Yisi.bundle" "${APP_BUNDLE}/Contents/Resources/"
 
 echo "Creating Universal Binary..."
 lipo -create -output "${APP_BUNDLE}/Contents/MacOS/${APP_NAME}" "${ARM64_BIN}" "${X86_BIN}"
